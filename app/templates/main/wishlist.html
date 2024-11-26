@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}My Wishlist{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">My Wishlist</h2>
+
+    {% if wishlist_items %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for item in wishlist_items %}
+        <div class="col">
+            <div class="card h-100" id="wishlist-item-{{ item.product.id }}">
+                <div class="position-relative">
+                    {% if item.product.image_url %}
+                    <img src="{{ item.product.image_url }}" class="card-img-top" alt="{{ item.product.name }}">
+                    {% else %}
+                    <div class="card-img-top bg-light text-center py-4">
+                        <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
+                    </div>
+                    {% endif %}
+                    <button onclick="toggleWishlist({{ item.product.id }})" 
+                            class="btn btn-light position-absolute top-0 end-0 m-2 rounded-circle p-2 text-danger">
+                        <i class="bi bi-heart-fill"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.product.name }}</h5>
+                    <p class="card-text">{{ item.product.description[:100] }}{% if item.product.description|length > 100 %}...{% endif %}</p>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="h5 mb-0">${{ "%.2f"|format(item.product.price) }}</span>
+                        {% if item.product.stock > 0 %}
+                        <span class="badge bg-success">In Stock</span>
+                        {% else %}
+                        <span class="badge bg-danger">Out of Stock</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex gap-2">
+                        <button onclick="showProductQuickView({{ item.product.id }})" 
+                                class="btn btn-outline-primary flex-grow-1">
+                            <i class="bi bi-eye"></i> Quick View
+                        </button>
+                        {% if item.product.stock > 0 %}
+                        <button onclick="addToCart({{ item.product.id }})" 
+                                class="btn btn-primary">
+                            <i class="bi bi-cart-plus"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-heart text-muted" style="font-size: 4rem;"></i>
+        <h4 class="text-muted mt-3">Your wishlist is empty</h4>
+        <p class="mb-4">Save items you like by clicking the heart icon on product pages!</p>
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+            <i class="bi bi-shop"></i> Browse Products
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{% include 'includes/_product_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleWishlist(productId) {
+    fetch(`/wishlist/toggle/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the item from wishlist view with animation
+            const item = document.getElementById(`wishlist-item-${productId}`).parentElement;
+            item.style.transition = 'opacity 0.3s ease-out';
+            item.style.opacity = '0';
+            
+            // Update wishlist counter
+            const wishlistBadge = document.getElementById('wishlist-total');
+            if (data.wishlist_total > 0) {
+                if (wishlistBadge) {
+                    wishlistBadge.textContent = data.wishlist_total;
+                } else {
+                    const wishlistLink = document.querySelector('a[href*="wishlist"]');
+                    if (wishlistLink) {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'badge bg-danger';
+                        newBadge.id = 'wishlist-total';
+                        newBadge.textContent = data.wishlist_total;
+                        wishlistLink.appendChild(newBadge);
+                    }
+                }
+            } else if (wishlistBadge) {
+                wishlistBadge.remove();
+            }
+            
+            setTimeout(() => {
+                item.remove();
+                // Check if wishlist is empty
+                const wishlistItems = document.querySelectorAll('.card');
+                if (wishlistItems.length === 0) {
+                    location.reload(); // Reload to show empty state
+                }
+            }, 300);
+            
+            showToast(data.message);
+        } else {
+            showToast('Failed to update wishlist');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('An error occurred');
+    });
+}
+
+function addToCart(productId) {
+    fetch(`/cart/add/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const cartBadge = document.getElementById('cart-total');
+            if (cartBadge) {
+                cartBadge.textContent = data.cart_total;
+            }
+            showToast('Item added to cart successfully');
+        } else {
+            showToast(data.message || 'Failed to add item to cart');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('An error occurred while adding to cart');
+    });
+}
+</script>
+{% endblock %}

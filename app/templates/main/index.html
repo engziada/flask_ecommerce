@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to Flask Shop{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <!-- Categories Sidebar -->
+        <div class="col-md-3">
+            <h4>Categories</h4>
+            <div class="list-group">
+                {% for category in categories %}
+                <a href="{{ url_for('main.category_products', category_id=category.id) }}" 
+                   class="list-group-item list-group-item-action">
+                    {{ category.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Products Grid -->
+        <div class="col-md-9">
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for product in products.items %}
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="position-relative">
+                            {% if product.image_url %}
+                            <img src="{{ product.image_url }}" class="card-img-top" alt="{{ product.name }}">
+                            {% else %}
+                            <div class="card-img-top bg-light text-center py-4">
+                                <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
+                            </div>
+                            {% endif %}
+                            {% if current_user.is_authenticated %}
+                            <button onclick="toggleWishlist({{ product.id }})" 
+                                    class="btn btn-light position-absolute top-0 end-0 m-2 rounded-circle p-2"
+                                    data-product-id="{{ product.id }}">
+                                <i class="bi bi-heart wishlist-icon-{{ product.id }}"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">{{ product.name }}</h5>
+                            <p class="card-text">{{ product.description[:100] }}{% if product.description|length > 100 %}...{% endif %}</p>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="h5 mb-0">${{ "%.2f"|format(product.price) }}</span>
+                                {% if product.stock > 0 %}
+                                <span class="badge bg-success">In Stock</span>
+                                {% else %}
+                                <span class="badge bg-danger">Out of Stock</span>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('main.product_detail', product_id=product.id) }}" 
+                                   class="btn btn-outline-primary flex-grow-1">
+                                    View Details
+                                </a>
+                                {% if current_user.is_authenticated and product.stock > 0 %}
+                                <button onclick="addToCart({{ product.id }})" 
+                                        class="btn btn-primary">
+                                    <i class="bi bi-cart-plus"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if products.pages > 1 %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if products.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.index', page=products.prev_num) }}">Previous</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Previous</span>
+                    </li>
+                    {% endif %}
+
+                    {% for page_num in range(1, products.pages + 1) %}
+                    <li class="page-item {% if page_num == products.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('main.index', page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% endfor %}
+
+                    {% if products.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.index', page=products.next_num) }}">Next</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Next</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check wishlist status for all products
+    if ({{ current_user.is_authenticated|tojson }}) {
+        document.querySelectorAll('[data-product-id]').forEach(button => {
+            const productId = button.dataset.productId;
+            checkWishlistStatus(productId);
+        });
+    }
+});
+
+function checkWishlistStatus(productId) {
+    fetch(`/wishlist/check/${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const icon = document.querySelector(`.wishlist-icon-${productId}`);
+                if (icon) {
+                    icon.classList.toggle('bi-heart-fill', data.in_wishlist);
+                    icon.classList.toggle('bi-heart', !data.in_wishlist);
+                    icon.closest('button').classList.toggle('text-danger', data.in_wishlist);
+                }
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+function toggleWishlist(productId) {
+    fetch(`/wishlist/toggle/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const icon = document.querySelector(`.wishlist-icon-${productId}`);
+            if (icon) {
+                icon.classList.toggle('bi-heart-fill', data.in_wishlist);
+                icon.classList.toggle('bi-heart', !data.in_wishlist);
+                icon.closest('button').classList.toggle('text-danger', data.in_wishlist);
+            }
+            
+            // Update wishlist counter
+            const wishlistBadge = document.getElementById('wishlist-total');
+            if (data.wishlist_total > 0) {
+                if (wishlistBadge) {
+                    wishlistBadge.textContent = data.wishlist_total;
+                } else {
+                    const wishlistLink = document.querySelector('a[href*="wishlist"]');
+                    if (wishlistLink) {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'badge bg-danger';
+                        newBadge.id = 'wishlist-total';
+                        newBadge.textContent = data.wishlist_total;
+                        wishlistLink.appendChild(newBadge);
+                    }
+                }
+            } else if (wishlistBadge) {
+                wishlistBadge.remove();
+            }
+            
+            showToast(data.message);
+        } else {
+            showToast('Failed to update wishlist');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('An error occurred');
+    });
+}
+
+function addToCart(productId) {
+    fetch(`/cart/add/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const cartBadge = document.getElementById('cart-total');
+            if (cartBadge) {
+                cartBadge.textContent = data.cart_total;
+            }
+            showToast('Item added to cart successfully');
+        } else {
+            showToast(data.message || 'Failed to add item to cart');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('An error occurred while adding to cart');
+    });
+}
+</script>
+{% endblock %}

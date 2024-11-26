@@ -1,0 +1,103 @@
+<!-- Product Quick View Modal -->
+<div class="modal fade" id="productQuickView" tabindex="-1" aria-labelledby="productQuickViewLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productQuickViewLabel">Product Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <div id="modalProductImage" class="text-center">
+                            <!-- Image will be inserted here -->
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h4 id="modalProductName"></h4>
+                        <p class="text-muted mb-2" id="modalProductCategory"></p>
+                        <div class="mb-3">
+                            <h5 class="text-primary" id="modalProductPrice"></h5>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted" id="modalProductStock"></span>
+                                <span id="modalProductStockBadge"></span>
+                            </div>
+                        </div>
+                        <p id="modalProductDescription"></p>
+                        <div class="d-flex gap-2" id="modalProductActions">
+                            <!-- Action buttons will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for handling product quick view -->
+<script>
+function showProductQuickView(productId) {
+    fetch(`/api/product/${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const product = data.product;
+                
+                // Update modal title
+                document.getElementById('productQuickViewLabel').textContent = product.name;
+                
+                // Update product details
+                document.getElementById('modalProductName').textContent = product.name;
+                document.getElementById('modalProductCategory').textContent = product.category_name;
+                document.getElementById('modalProductPrice').textContent = `$${product.price.toFixed(2)}`;
+                document.getElementById('modalProductStock').textContent = `Stock: ${product.stock} available`;
+                document.getElementById('modalProductDescription').textContent = product.description;
+                
+                // Update stock badge
+                const stockBadge = document.getElementById('modalProductStockBadge');
+                if (product.stock > 0) {
+                    stockBadge.className = 'badge bg-success';
+                    stockBadge.textContent = 'In Stock';
+                } else {
+                    stockBadge.className = 'badge bg-danger';
+                    stockBadge.textContent = 'Out of Stock';
+                }
+                
+                // Update product image
+                const imageContainer = document.getElementById('modalProductImage');
+                if (product.image_url) {
+                    imageContainer.innerHTML = `<img src="${product.image_url}" class="img-fluid rounded" alt="${product.name}">`;
+                } else {
+                    imageContainer.innerHTML = `
+                        <div class="bg-light rounded text-center py-5">
+                            <i class="bi bi-image text-muted" style="font-size: 6rem;"></i>
+                        </div>
+                    `;
+                }
+                
+                // Update action buttons
+                const actionsContainer = document.getElementById('modalProductActions');
+                actionsContainer.innerHTML = `
+                    <a href="/product/${product.id}" class="btn btn-outline-primary">
+                        View Full Details
+                    </a>
+                    ${product.stock > 0 ? `
+                        <button onclick="addToCart(${product.id})" class="btn btn-primary">
+                            <i class="bi bi-cart-plus"></i> Add to Cart
+                        </button>
+                    ` : ''}
+                `;
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('productQuickView'));
+                modal.show();
+            } else {
+                showToast('Failed to load product details');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('An error occurred while loading product details');
+        });
+}
+</script>

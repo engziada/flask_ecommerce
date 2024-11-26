@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Us{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Contact Us</h1>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">Send us a Message</h3>
+                    <form method="POST">
+                        {{ form.csrf_token }}
+                        <div class="mb-3">
+                            <label for="name" class="form-label">{{ form.name.label }}</label>
+                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">{{ form.email.label }}</label>
+                            {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else "")) }}
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">{{ form.subject.label }}</label>
+                            {{ form.subject(class="form-control" + (" is-invalid" if form.subject.errors else "")) }}
+                            {% if form.subject.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.subject.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="message" class="form-label">{{ form.message.label }}</label>
+                            {{ form.message(class="form-control" + (" is-invalid" if form.message.errors else ""), rows="5") }}
+                            {% if form.message.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.message.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">Contact Information</h3>
+                    <p><strong>Customer Support:</strong><br>
+                    Email: support@flaskshop.com<br>
+                    Phone: (555) 123-4567</p>
+                    
+                    <p><strong>Business Hours:</strong><br>
+                    Monday - Friday: 9:00 AM - 6:00 PM<br>
+                    Saturday: 10:00 AM - 4:00 PM<br>
+                    Sunday: Closed</p>
+                    
+                    <p><strong>Address:</strong><br>
+                    123 E-commerce Street<br>
+                    Tech Valley, CA 94025<br>
+                    United States</p>
+                    
+                    <h4 class="mt-4">Connect With Us</h4>
+                    <div class="social-links">
+                        <a href="#" class="btn btn-outline-primary me-2">Facebook</a>
+                        <a href="#" class="btn btn-outline-info me-2">Twitter</a>
+                        <a href="#" class="btn btn-outline-danger">Instagram</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

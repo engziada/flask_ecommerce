@@ -1,0 +1,29 @@
+Dear {{ order.user.username }},
+
+Thank you for your order! We're pleased to confirm that we've received your order and it's being processed.
+
+Order Details:
+Order Number: #{{ order.id }}
+Order Date: {{ order.created_at.strftime('%B %d, %Y') }}
+
+Items Ordered:
+{% for item in order.items %}
+- {{ item.product.name }}
+  Quantity: {{ item.quantity }}
+  Price: ${{ "%.2f"|format(item.price) }}
+{% endfor %}
+
+Total Amount: ${{ "%.2f"|format(order.total_amount) }}
+
+Shipping Information:
+{{ order.shipping_address }}
+{{ order.shipping_city }}, {{ order.shipping_postal_code }}
+{{ order.shipping_country }}
+
+You can view your order details here:
+{{ url_for('auth.orders', _external=True) }}
+
+If you have any questions about your order, please don't hesitate to contact our customer service team.
+
+Best regards,
+Flask Shop Team

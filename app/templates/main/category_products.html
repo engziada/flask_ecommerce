@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.name }} - Products{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ category.name }}</li>
+        </ol>
+    </nav>
+
+    <h1>{{ category.name }}</h1>
+    <p class="lead">{{ category.description }}</p>
+
+    <div class="row mt-4">
+        {% for product in products.items %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                {% if product.image_url %}
+                <img src="{{ product.image_url }}" class="card-img-top" alt="{{ product.name }}">
+                {% endif %}
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">{{ product.name }}</h5>
+                    <p class="card-text">{{ product.description[:100] }}...</p>
+                    <p class="card-text"><strong>Price: ${{ "%.2f"|format(product.price) }}</strong></p>
+                    <p class="card-text"><small class="text-muted">Stock: {{ product.stock }} available</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('main.product_detail', product_id=product.id) }}" class="btn btn-primary">View Details</a>
+                        {% if current_user.is_authenticated and product.stock > 0 %}
+                        <button onclick="addToCart({{ product.id }})" class="btn btn-success">Add to Cart</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if products.pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if products.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.category_products', category_id=category.id, page=products.prev_num) }}">Previous</a>
+            </li>
+            {% endif %}
+
+            {% for page_num in products.iter_pages(left_edge=2, left_current=2, right_current=2, right_edge=2) %}
+                {% if page_num %}
+                    {% if products.page == page_num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.category_products', category_id=category.id, page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if products.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.category_products', category_id=category.id, page=products.next_num) }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function addToCart(productId) {
+    fetch(`/add-to-cart/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            quantity: 1
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update cart total in navbar
+            const cartBadge = document.querySelector('#cart-total');
+            if (cartBadge) {
+                cartBadge.textContent = data.cart_total;
+            }
+            
+            // Show success message
+            const toast = new bootstrap.Toast(document.querySelector('.toast'));
+            document.querySelector('.toast-body').textContent = data.message;
+            toast.show();
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to add item to cart');
+    });
+}
+</script>
+{% endblock %}
