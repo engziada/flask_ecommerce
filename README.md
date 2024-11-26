@@ -1,35 +1,92 @@
-# Flask E-Commerce Platform
+# Flask E-commerce Application
 
-A scalable and customizable e-commerce platform built with Flask.
+A modern e-commerce web application built with Flask, featuring a responsive design and rich user interactions.
 
 ## Features
 
-- User Authentication and Authorization
-- Product Management
-- Shopping Cart
+### Core Features
+- User Authentication (Register, Login, Password Reset)
+- Product Catalog with Categories
+- Shopping Cart Management
 - Secure Checkout Process
-- Order Management
-- User Profiles
-- Admin Dashboard
-- Search Functionality
-- Reviews and Ratings
-- Email Notifications
+- User Profile Management
+- Address Management
+- Order History
+
+### Enhanced Features
+- Wishlist Management
+  - Dynamic wishlist counter in navigation
+  - Toggle items with heart icons
+  - Quick view product details
+  - Smooth animations for item removal
+  - Cross-page consistency
+  
+- Advanced Cart Features
+  - Real-time quantity updates
+  - Dynamic total calculations
+  - Stock availability checks
+  - Quick view product details
+  - Enhanced UI/UX
+
+- Product Reviews System
+  - Star ratings (1-5)
+  - Detailed user comments
+  - Form validation with error messages
+  - CSRF protection
+  - Review timestamps
+  - User-specific reviews
+
+- Quick View Modal
+  - Shared modal component
+  - Dynamic product loading
+  - Add to cart functionality
+  - Consistent experience
+
+### Technical Features
+- CSRF Protection
+- Form Validation
+- Error Handling
+- Flash Messages
+- Responsive Design
+- AJAX Interactions
+- Database Migrations
+- Context Processors
+- Blueprint Structure
+
+## Project Structure
+```
+flask_ecommerce/
+├── app/
+│   ├── auth/             # Authentication routes and forms
+│   ├── main/             # Main application routes
+│   ├── models/           # Database models
+│   ├── static/           # Static files (CSS, JS, images)
+│   ├── templates/        # Jinja2 templates
+│   │   ├── auth/        # Authentication templates
+│   │   ├── main/        # Main application templates
+│   │   └── includes/    # Reusable template components
+│   ├── forms/           # Form classes
+│   └── extensions.py    # Flask extensions
+├── migrations/          # Database migrations
+├── tests/              # Test files
+├── config.py           # Configuration files
+├── requirements.txt    # Python dependencies
+└── run.py             # Application entry point
+```
 
 ## Installation
 
-1. Create a virtual environment:
+1. Clone the repository:
 ```bash
-python -m venv venv
+git clone <repository-url>
+cd flask_ecommerce
 ```
 
-2. Activate the virtual environment:
-- Windows:
+2. Create and activate a virtual environment:
 ```bash
-venv\Scripts\activate
-```
-- Unix/MacOS:
-```bash
-source venv/bin/activate
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
 ```
 
 3. Install dependencies:
@@ -38,24 +95,15 @@ pip install -r requirements.txt
 ```
 
 4. Set up environment variables:
-Create a `.env` file in the root directory with the following variables:
-```
-FLASK_APP=run.py
-FLASK_ENV=development
-SECRET_KEY=your-secret-key
-DATABASE_URL=sqlite:///shop.db
-MAIL_SERVER=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USE_TLS=True
-MAIL_USERNAME=your-email@gmail.com
-MAIL_PASSWORD=your-email-password
-STRIPE_PUBLIC_KEY=your-stripe-public-key
-STRIPE_SECRET_KEY=your-stripe-secret-key
+```bash
+set FLASK_APP=run.py
+set FLASK_ENV=development
 ```
 
 5. Initialize the database:
 ```bash
 flask db upgrade
+python -m app.sample_data  # Load sample data
 ```
 
 6. Run the application:
@@ -63,54 +111,48 @@ flask db upgrade
 flask run
 ```
 
-## Project Structure
+## Sample Data
+The application comes with a sample dataset including:
+- Product categories (Electronics, Clothing, Home & Kitchen)
+- Sample products with images and descriptions
+- User accounts for testing
+- Product reviews with ratings and comments
 
+## Development
+
+### Database Migrations
+```bash
+flask db migrate -m "Description of changes"
+flask db upgrade
 ```
-flask_ecommerce/
-├── app/
-│   ├── __init__.py
-│   ├── models/
-│   ├── routes/
-│   ├── static/
-│   └── templates/
-├── migrations/
-├── instance/
-├── tests/
-├── .env
-├── .gitignore
-├── README.md
-├── requirements.txt
-└── run.py
+
+### Running Tests
+```bash
+python -m pytest
 ```
+
+## Security Features
+- CSRF Protection on all forms
+- Secure password hashing
+- Protected API endpoints
+- Input validation
+- Error logging
+- Session management
+
+## Future Improvements
+1. Product review system enhancements
+2. Advanced search and filtering
+3. Product recommendations
+4. Social sharing features
+5. Performance optimizations
+6. Enhanced admin interface
+7. Order tracking system
+8. Email notifications
+9. Payment gateway integration
+10. Inventory management
 
 ## Contributing
-
-1. Fork the repository
-2. Create a new branch
-3. Make your changes
-4. Submit a pull request
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
-
-This project is licensed under the MIT License.
-
-Copyright (c) 2023 M.Ziada @ ZSoft
-
-## Email Setup
-Now, to use Gmail for sending emails, you'll need to:
-
-Enable 2-Step Verification in your Google Account:
-Go to your Google Account settings
-Click on "Security"
-Enable "2-Step Verification"
-Generate an App Password:
-Go to your Google Account settings
-Click on "Security"
-Under "2-Step Verification", click on "App passwords"
-Select "Mail" as the app and "Other" as the device
-Enter "Flask Shop" as the name
-Click "Generate"
-Copy the 16-character password
-Update the .env file with your Gmail credentials:
-Replace your-email@gmail.com with your actual Gmail address
-Replace your-app-password with the 16-character app password you generated
+This project is licensed under the MIT License - see the LICENSE file for details.
