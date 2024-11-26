@@ -86,6 +86,102 @@ Status Descriptions:
 - Context Processors
 - Blueprint Structure
 
+## Recent Updates
+
+### Navigation Improvements
+- Fixed navigation bar that stays visible while scrolling
+- Dynamic cart and wishlist count indicators
+- Improved mobile responsiveness
+- Persistent count updates across page navigation
+
+### Enhanced Shopping Cart
+- Switched from JSON to FormData for better form handling
+- Improved error handling and user feedback
+- Real-time cart updates without page refresh
+- Better validation of quantities and stock levels
+
+### Checkout Process Refinement
+- Detailed order summary with item-level pricing
+- Clear display of subtotals, shipping, and discounts
+- Improved promo code application system
+- Better handling of address selection
+
+## Project Hierarchy
+
+```
+flask_ecommerce/
+├── app/                      # Main application package
+│   ├── __init__.py          # App initialization and configuration
+│   ├── auth/                # Authentication module
+│   │   ├── __init__.py
+│   │   ├── forms.py         # Login/Register forms
+│   │   └── routes.py        # Auth routes (login, register, reset)
+│   ├── cart/                # Shopping cart module
+│   │   ├── __init__.py
+│   │   └── routes.py        # Cart management routes
+│   ├── main/                # Core functionality
+│   │   ├── __init__.py
+│   │   └── routes.py        # Main routes (home, product listing)
+│   ├── models/              # Database models
+│   │   ├── address.py       # User address management
+│   │   ├── cart.py         # Shopping cart implementation
+│   │   ├── order.py        # Order processing
+│   │   ├── product.py      # Product catalog
+│   │   ├── review.py       # Product reviews
+│   │   ├── user.py         # User management
+│   │   └── wishlist.py     # Wishlist functionality
+│   ├── order/              # Order processing module
+│   │   ├── __init__.py
+│   │   └── routes.py       # Order management routes
+│   ├── static/             # Static assets
+│   │   ├── css/           # Stylesheets
+│   │   ├── js/            # JavaScript files
+│   │   └── images/        # Image assets
+│   ├── templates/          # Jinja2 templates
+│   │   ├── auth/          # Authentication templates
+│   │   ├── cart/          # Shopping cart templates
+│   │   ├── main/          # Core templates
+│   │   ├── order/         # Order management templates
+│   │   └── base.html      # Base template with navigation
+│   └── wishlist/          # Wishlist module
+│       ├── __init__.py
+│       └── routes.py      # Wishlist management routes
+├── migrations/            # Database migrations
+├── tests/                # Test suite
+├── config.py             # Configuration settings
+├── requirements.txt      # Python dependencies
+└── run.py               # Application entry point
+```
+
+### Key Components
+
+#### Models
+- **User**: Handles user authentication and profile management
+- **Product**: Manages product catalog and inventory
+- **Cart**: Implements shopping cart functionality with subtotal calculation
+- **Order**: Processes and tracks customer orders
+- **Address**: Manages multiple shipping addresses per user
+- **Wishlist**: Handles user's saved items
+- **Review**: Manages product reviews and ratings
+
+#### Routes
+- **auth**: User authentication and account management
+- **main**: Core application routes and product display
+- **cart**: Shopping cart operations and checkout process
+- **order**: Order processing and tracking
+- **wishlist**: Wishlist management and operations
+
+#### Templates
+- Organized by module for better maintainability
+- Shared components in base template
+- Responsive design with Bootstrap 5
+- Dynamic content updates via JavaScript
+
+#### Static Files
+- **CSS**: Custom styles and Bootstrap customization
+- **JavaScript**: AJAX handlers and UI interactions
+- **Images**: Product images and UI assets
+
 ## Project Structure
 ```
 flask_ecommerce/

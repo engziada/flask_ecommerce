@@ -1,41 +1,34 @@
-"""Script to create the default admin account."""
-import sys
-import os
-from pathlib import Path
-
-# Add the parent directory to Python path
-parent_dir = str(Path(__file__).resolve().parent.parent)
-sys.path.append(parent_dir)
-
-from app import create_app, db
+from app import create_app
+from app.extensions import db
 from app.models.user import User
+from werkzeug.security import generate_password_hash
 
-def create_admin_user():
-    """Create the default admin user if it doesn't exist."""
+def create_admin_user(username, email, password):
     app = create_app()
-    
     with app.app_context():
-        # Check if admin user already exists
-        admin = User.query.filter_by(email='admin@example.com').first()
-        if admin is None:
-            # Create new admin user
-            admin = User(
-                username='admin',
-                email='admin@example.com',
-            )
-            admin.set_password('admin123')  # Set default password
-            admin.is_admin = True  # Set admin flag
-            admin.first_name = 'Admin'
-            admin.last_name = 'User'
-            
-            # Add to database
-            db.session.add(admin)
-            db.session.commit()
-            print("Admin user created successfully!")
-            print("Email: admin@example.com")
-            print("Password: admin123")
+        # Check if user already exists
+        user = User.query.filter_by(email=email).first()
+        if user:
+            # If user exists, make them admin
+            user.is_admin = True
+            print(f"Existing user {email} has been made admin")
         else:
-            print("Admin user already exists!")
+            # Create new admin user
+            user = User(
+                username=username,
+                email=email,
+                password=password
+            )
+            user.is_admin = True
+            db.session.add(user)
+        
+        db.session.commit()
+        print(f"Admin user {email} has been created/updated successfully")
 
-if __name__ == '__main__':
-    create_admin_user()
+if __name__ == "__main__":
+    # You can modify these credentials as needed
+    username = "admin"
+    email = "admin@example.com"
+    password = "Admin123!"  # Make sure to change this password
+    
+    create_admin_user(username, email, password)

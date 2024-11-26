@@ -150,6 +150,57 @@ function updateProductList(products) {
     }
 }
 
+// Update cart count in header
+function updateCartCount(count) {
+    const cartLink = document.querySelector('a[href*="cart"]');
+    let cartTotal = document.getElementById('cart-total');
+    
+    if (count > 0) {
+        if (!cartTotal) {
+            cartTotal = document.createElement('span');
+            cartTotal.className = 'badge bg-danger';
+            cartTotal.id = 'cart-total';
+            cartLink.appendChild(cartTotal);
+        }
+        cartTotal.textContent = count;
+    } else if (cartTotal) {
+        cartTotal.remove();
+    }
+}
+
+// Update wishlist count in header
+function updateWishlistCount(count) {
+    const wishlistLink = document.querySelector('a[href*="wishlist"]');
+    let wishlistTotal = document.getElementById('wishlist-total');
+    
+    if (count > 0) {
+        if (!wishlistTotal) {
+            wishlistTotal = document.createElement('span');
+            wishlistTotal.className = 'badge bg-danger';
+            wishlistTotal.id = 'wishlist-total';
+            wishlistLink.appendChild(wishlistTotal);
+        }
+        wishlistTotal.textContent = count;
+    } else if (wishlistTotal) {
+        wishlistTotal.remove();
+    }
+}
+
+// Load counts from server
+function loadCounts() {
+    fetch('/api/counts')
+        .then(response => response.json())
+        .then(data => {
+            if (data.cart_count !== undefined) {
+                updateCartCount(data.cart_count);
+            }
+            if (data.wishlist_count !== undefined) {
+                updateWishlistCount(data.wishlist_count);
+            }
+        })
+        .catch(error => console.error('Error loading counts:', error));
+}
+
 // Notifications
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
@@ -183,4 +234,9 @@ document.addEventListener('DOMContentLoaded', () => {
             updateCart(productId, e.target.value);
         });
     });
+    
+    // Initialize counts when page loads
+    if (document.querySelector('a[href*="cart"]')) {
+        loadCounts();
+    }
 });

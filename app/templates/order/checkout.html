@@ -16,7 +16,9 @@
                     <div class="d-flex justify-content-between mb-3">
                         <div>
                             <h6 class="my-0">{{ item.product.name }}</h6>
-                            <small class="text-muted">Quantity: {{ item.quantity }}</small>
+                            <small class="text-muted">
+                                Quantity: {{ item.quantity }} × ${{ "%.2f"|format(item.product.price) }}
+                            </small>
                         </div>
                         <span class="text-muted">${{ "%.2f"|format(item.subtotal) }}</span>
                     </div>
@@ -34,10 +36,10 @@
                         <strong>${{ "%.2f"|format(shipping_cost) }}</strong>
                     </div>
 
-                    {% if discount %}
+                    {% if discount_percent > 0 %}
                     <div class="d-flex justify-content-between mb-2 text-success">
-                        <span>Discount</span>
-                        <strong>-${{ "%.2f"|format(discount) }}</strong>
+                        <span>Discount ({{ discount_percent }}%)</span>
+                        <strong>-${{ "%.2f"|format(discount_amount) }}</strong>
                     </div>
                     {% endif %}
 
@@ -48,10 +50,10 @@
                         <strong>${{ "%.2f"|format(total) }}</strong>
                     </div>
 
-                    {% if not discount %}
+                    {% if not discount_percent %}
                     <div class="mt-3">
                         <div class="input-group">
-                            <input type="text" class="form-control" placeholder="Promo code" id="promoCode">
+                            <input type="text" class="form-control" id="promoCode" placeholder="Promo code">
                             <button class="btn btn-secondary" type="button" onclick="applyPromoCode()">Apply</button>
                         </div>
                     </div>
@@ -62,7 +64,7 @@
 
         <!-- Checkout Form -->
         <div class="col-md-8 order-md-1">
-            <form id="checkout-form" method="POST" action="{{ url_for('main.process_checkout') }}">
+            <form id="checkout-form" method="POST" action="{{ url_for('order.process_checkout') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 
                 <!-- Shipping Address -->

@@ -76,53 +76,30 @@ function toggleWishlist(productId) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
         }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Remove the item from wishlist view with animation
-            const item = document.getElementById(`wishlist-item-${productId}`).parentElement;
-            item.style.transition = 'opacity 0.3s ease-out';
-            item.style.opacity = '0';
-            
-            // Update wishlist counter
-            const wishlistBadge = document.getElementById('wishlist-total');
-            if (data.wishlist_total > 0) {
-                if (wishlistBadge) {
-                    wishlistBadge.textContent = data.wishlist_total;
-                } else {
-                    const wishlistLink = document.querySelector('a[href*="wishlist"]');
-                    if (wishlistLink) {
-                        const newBadge = document.createElement('span');
-                        newBadge.className = 'badge bg-danger';
-                        newBadge.id = 'wishlist-total';
-                        newBadge.textContent = data.wishlist_total;
-                        wishlistLink.appendChild(newBadge);
-                    }
-                }
-            } else if (wishlistBadge) {
-                wishlistBadge.remove();
+            document.getElementById(`wishlist-item-${productId}`).remove();
+            if (document.querySelectorAll('.card').length === 0) {
+                location.reload();
             }
-            
-            setTimeout(() => {
-                item.remove();
-                // Check if wishlist is empty
-                const wishlistItems = document.querySelectorAll('.card');
-                if (wishlistItems.length === 0) {
-                    location.reload(); // Reload to show empty state
+            // Update wishlist count in header
+            const wishlistTotal = document.getElementById('wishlist-total');
+            if (wishlistTotal) {
+                if (data.wishlist_total > 0) {
+                    wishlistTotal.textContent = data.wishlist_total;
+                } else {
+                    wishlistTotal.remove();
                 }
-            }, 300);
-            
-            showToast(data.message);
-        } else {
-            showToast('Failed to update wishlist');
+            }
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('An error occurred');
+        showToast('Error updating wishlist');
     });
 }
 
@@ -131,24 +108,25 @@ function addToCart(productId) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
         }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            const cartBadge = document.getElementById('cart-total');
-            if (cartBadge) {
-                cartBadge.textContent = data.cart_total;
+            showToast('Product added to cart');
+            // Update cart count in header
+            const cartTotal = document.getElementById('cart-total');
+            if (cartTotal) {
+                cartTotal.textContent = data.cart_total;
             }
-            showToast('Item added to cart successfully');
         } else {
-            showToast(data.message || 'Failed to add item to cart');
+            showToast(data.message || 'Error adding to cart');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('An error occurred while adding to cart');
+        showToast('Error adding to cart');
     });
 }
 </script>

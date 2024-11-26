@@ -49,21 +49,18 @@
             </div>
 
             {% if current_user.is_authenticated %}
-                {% if product.stock > 0 %}
-                <div class="d-grid">
-                    <button onclick="addToCart({{ product.id }})" class="btn btn-primary btn-lg">
+            <form class="mb-4" onsubmit="event.preventDefault(); addToCart({{ product.id }});">
+                <div class="input-group mb-3">
+                    <input type="number" class="form-control" id="quantity" name="quantity" value="1" min="1" max="{{ product.stock }}" required>
+                    <button type="submit" class="btn btn-primary" {% if product.stock <= 0 %}disabled{% endif %}>
                         <i class="bi bi-cart-plus"></i> Add to Cart
                     </button>
                 </div>
-                {% else %}
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle"></i> This product is currently out of stock.
-                </div>
-                {% endif %}
+            </form>
             {% else %}
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i> Please <a href="{{ url_for('auth.login') }}">login</a> to add items to cart.
-            </div>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+                <i class="bi bi-person"></i> Login to Purchase
+            </a>
             {% endif %}
         </div>
     </div>
@@ -124,28 +121,45 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Check wishlist status for the product
-    if ({{ current_user.is_authenticated|tojson }}) {
-        const productId = {{ product.id }};
-        checkWishlistStatus(productId);
+// Toast function for notifications
+function showToast(message, type = 'success') {
+    const toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1050;';
+        document.body.appendChild(container);
     }
-});
+    
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} alert-dismissible fade show`;
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.getElementById('toast-container').appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+}
 
 function checkWishlistStatus(productId) {
-    fetch(`/wishlist/check/${productId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const icon = document.querySelector(`.wishlist-icon-${productId}`);
-                if (icon) {
-                    icon.classList.toggle('bi-heart-fill', data.in_wishlist);
-                    icon.classList.toggle('bi-heart', !data.in_wishlist);
-                    icon.closest('button').classList.toggle('text-danger', data.in_wishlist);
-                }
+    fetch(`/wishlist/check/${productId}`, {
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.in_wishlist) {
+            const icon = document.querySelector(`.wishlist-icon-${productId}`);
+            if (icon) {
+                icon.classList.remove('bi-heart');
+                icon.classList.add('bi-heart-fill');
+                icon.closest('button').classList.add('text-danger');
             }
-        })
-        .catch(error => console.error('Error:', error));
+        }
+    })
+    .catch(error => console.error('Error:', error));
 }
 
 function toggleWishlist(productId) {
@@ -153,24 +167,30 @@ function toggleWishlist(productId) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
         }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             const icon = document.querySelector(`.wishlist-icon-${productId}`);
-            if (icon) {
-                icon.classList.toggle('bi-heart-fill', data.in_wishlist);
-                icon.classList.toggle('bi-heart', !data.in_wishlist);
-                icon.closest('button').classList.toggle('text-danger', data.in_wishlist);
+            const button = icon.closest('button');
+            
+            if (data.in_wishlist) {
+                icon.classList.remove('bi-heart');
+                icon.classList.add('bi-heart-fill');
+                button.classList.add('text-danger');
+            } else {
+                icon.classList.remove('bi-heart-fill');
+                icon.classList.add('bi-heart');
+                button.classList.remove('text-danger');
             }
             
-            // Update wishlist counter
-            const wishlistBadge = document.getElementById('wishlist-total');
+            // Update wishlist count in header
+            const wishlistTotal = document.getElementById('wishlist-total');
             if (data.wishlist_total > 0) {
-                if (wishlistBadge) {
-                    wishlistBadge.textContent = data.wishlist_total;
+                if (wishlistTotal) {
+                    wishlistTotal.textContent = data.wishlist_total;
                 } else {
                     const wishlistLink = document.querySelector('a[href*="wishlist"]');
                     if (wishlistLink) {
@@ -181,45 +201,104 @@ function toggleWishlist(productId) {
                         wishlistLink.appendChild(newBadge);
                     }
                 }
-            } else if (wishlistBadge) {
-                wishlistBadge.remove();
+            } else if (wishlistTotal) {
+                wishlistTotal.remove();
             }
             
             showToast(data.message);
-        } else {
-            showToast('Failed to update wishlist');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('An error occurred');
+        showToast('Error updating wishlist');
     });
 }
 
 function addToCart(productId) {
+    const quantityInput = document.getElementById('quantity');
+    const quantity = quantityInput ? parseInt(quantityInput.value) : 1;
+    
+    if (isNaN(quantity) || quantity < 1) {
+        showToast('Please enter a valid quantity', 'danger');
+        return;
+    }
+
+    // Create FormData object
+    const formData = new FormData();
+    formData.append('quantity', quantity);
+    
     fetch(`/cart/add/${productId}`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
-        }
+            'X-CSRF-Token': '{{ csrf_token() }}'
+        },
+        body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        
+        return response.text().then(text => {
+            try {
+                return { 
+                    ok: response.ok, 
+                    data: text ? JSON.parse(text) : null,
+                    status: response.status
+                };
+            } catch (e) {
+                console.error('Error parsing response:', text);
+                return { 
+                    ok: false, 
+                    data: null,
+                    status: response.status,
+                    error: 'Invalid JSON response'
+                };
+            }
+        });
+    })
+    .then(result => {
+        if (!result.ok) {
+            throw new Error(
+                result.data?.message || 
+                `Server error (${result.status}): ${result.error || 'Unknown error'}`
+            );
+        }
+        return result.data;
+    })
     .then(data => {
         if (data.success) {
-            const cartBadge = document.getElementById('cart-total');
-            if (cartBadge) {
-                cartBadge.textContent = data.cart_total;
+            showToast(data.message || 'Added to cart successfully', 'success');
+            
+            // Update cart count in header
+            const cartTotal = document.getElementById('cart-total');
+            if (data.cart_total > 0) {
+                if (cartTotal) {
+                    cartTotal.textContent = data.cart_total;
+                } else {
+                    const cartLink = document.querySelector('a[href*="cart"]');
+                    if (cartLink) {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'badge bg-danger';
+                        newBadge.id = 'cart-total';
+                        newBadge.textContent = data.cart_total;
+                        cartLink.appendChild(newBadge);
+                    }
+                }
             }
-            showToast('Item added to cart successfully');
         } else {
-            showToast(data.message || 'Failed to add item to cart');
+            showToast(data.message || 'Error adding to cart', 'danger');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('An error occurred while adding to cart');
+        showToast(error.message || 'Error adding to cart', 'danger');
     });
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.querySelector('[data-product-id]')) {
+        const productId = document.querySelector('[data-product-id]').dataset.productId;
+        checkWishlistStatus(productId);
+    }
+});
 </script>
 {% endblock %}

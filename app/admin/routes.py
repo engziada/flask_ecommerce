@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 from flask import current_app
 from datetime import datetime
 
-admin = Blueprint('admin', __name__)
+bp = Blueprint('admin', __name__)
 
 def admin_required(f):
     @wraps(f)
@@ -25,7 +25,7 @@ def admin_required(f):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ['jpg', 'jpeg', 'png', 'gif']
 
-@admin.route('/admin')
+@bp.route('/')
 @login_required
 @admin_required
 def index():
@@ -33,14 +33,14 @@ def index():
     total_users = User.query.count()
     total_products = Product.query.count()
     total_orders = Order.query.count()
-    recent_orders = Order.query.order_by(Order.created_at.desc()).limit(5).all()
+    recent_orders = Order.query.order_by(Order.date_created.desc()).limit(5).all()
     return render_template('admin/index.html',
                          total_users=total_users,
                          total_products=total_products,
                          total_orders=total_orders,
                          recent_orders=recent_orders)
 
-@admin.route('/admin/products')
+@bp.route('/products')
 @login_required
 @admin_required
 def products():
@@ -49,7 +49,7 @@ def products():
     products = Product.query.paginate(page=page, per_page=20, error_out=False)
     return render_template('admin/products.html', products=products)
 
-@admin.route('/admin/product/new', methods=['GET', 'POST'])
+@bp.route('/product/new', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def new_product():
@@ -83,7 +83,7 @@ def new_product():
     categories = Category.query.all()
     return render_template('admin/product_form.html', categories=categories)
 
-@admin.route('/admin/product/<int:product_id>/edit', methods=['GET', 'POST'])
+@bp.route('/product/<int:product_id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def edit_product(product_id):
@@ -115,7 +115,7 @@ def edit_product(product_id):
     categories = Category.query.all()
     return render_template('admin/product_form.html', product=product, categories=categories)
 
-@admin.route('/admin/product/<int:product_id>/delete', methods=['POST'])
+@bp.route('/product/<int:product_id>/delete', methods=['POST'])
 @login_required
 @admin_required
 def delete_product(product_id):
@@ -126,7 +126,7 @@ def delete_product(product_id):
     flash('Product deleted successfully!', 'success')
     return redirect(url_for('admin.products'))
 
-@admin.route('/admin/categories')
+@bp.route('/categories')
 @login_required
 @admin_required
 def categories():
@@ -134,7 +134,7 @@ def categories():
     categories = Category.query.all()
     return render_template('admin/categories.html', categories=categories)
 
-@admin.route('/admin/category/new', methods=['GET', 'POST'])
+@bp.route('/category/new', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def new_category():
@@ -147,7 +147,7 @@ def new_category():
         return redirect(url_for('admin.categories'))
     return render_template('admin/category_form.html')
 
-@admin.route('/admin/category/<int:category_id>/edit', methods=['GET', 'POST'])
+@bp.route('/category/<int:category_id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def edit_category(category_id):
@@ -160,7 +160,7 @@ def edit_category(category_id):
         return redirect(url_for('admin.categories'))
     return render_template('admin/category_form.html', category=category)
 
-@admin.route('/admin/category/<int:category_id>/delete', methods=['POST'])
+@bp.route('/category/<int:category_id>/delete', methods=['POST'])
 @login_required
 @admin_required
 def delete_category(category_id):
@@ -171,7 +171,7 @@ def delete_category(category_id):
     flash('Category deleted successfully!', 'success')
     return redirect(url_for('admin.categories'))
 
-@admin.route('/admin/orders')
+@bp.route('/orders')
 @login_required
 @admin_required
 def orders():
@@ -184,12 +184,10 @@ def orders():
         query = query.filter_by(status=status_filter)
     
     orders = query.order_by(Order.date_created.desc()).paginate(
-        page=page, per_page=20, error_out=False
-    )
-    
+        page=page, per_page=20, error_out=False)
     return render_template('admin/orders.html', orders=orders)
 
-@admin.route('/admin/orders/<int:order_id>')
+@bp.route('/orders/<int:order_id>')
 @login_required
 @admin_required
 def order_detail(order_id):
@@ -197,7 +195,7 @@ def order_detail(order_id):
     order = Order.query.get_or_404(order_id)
     return render_template('admin/order_detail.html', order=order)
 
-@admin.route('/admin/orders/<int:order_id>/status', methods=['POST'])
+@bp.route('/orders/<int:order_id>/status', methods=['POST'])
 @login_required
 @admin_required
 def update_order_status(order_id):
@@ -235,7 +233,7 @@ def update_order_status(order_id):
     
     return redirect(url_for('admin.order_detail', order_id=order_id))
 
-@admin.route('/admin/users')
+@bp.route('/users')
 @login_required
 @admin_required
 def users():
@@ -244,7 +242,7 @@ def users():
     users = User.query.paginate(page=page, per_page=20, error_out=False)
     return render_template('admin/users.html', users=users)
 
-@admin.route('/admin/user/<int:user_id>/toggle-admin', methods=['POST'])
+@bp.route('/user/<int:user_id>/toggle-admin', methods=['POST'])
 @login_required
 @admin_required
 def toggle_admin(user_id):

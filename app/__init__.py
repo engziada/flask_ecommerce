@@ -38,10 +38,22 @@ def create_app(config_class=Config):
     app.register_blueprint(main_bp)
 
     from app.admin import bp as admin_bp
-    app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(admin_bp)
 
     from app.shop import bp as shop_bp
-    app.register_blueprint(shop_bp, url_prefix='/shop')
+    app.register_blueprint(shop_bp)
+
+    from app.cart import bp as cart_bp
+    app.register_blueprint(cart_bp, url_prefix='/cart')
+
+    from app.wishlist import bp as wishlist_bp
+    app.register_blueprint(wishlist_bp, url_prefix='/wishlist')
+
+    from app.order import bp as order_bp
+    app.register_blueprint(order_bp, url_prefix='/order')
+
+    from app.address import bp as address_bp
+    app.register_blueprint(address_bp, url_prefix='/address')
 
     # Print out all registered routes for debugging
     print("\nRegistered Routes:")
