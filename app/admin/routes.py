@@ -9,6 +9,7 @@ from functools import wraps
 import os
 from werkzeug.utils import secure_filename
 from flask import current_app
+from datetime import datetime
 
 admin = Blueprint('admin', __name__)
 
@@ -176,12 +177,19 @@ def delete_category(category_id):
 def orders():
     """Order management page"""
     page = request.args.get('page', 1, type=int)
-    orders = Order.query.order_by(Order.created_at.desc()).paginate(
+    status_filter = request.args.get('status', None)
+    
+    query = Order.query
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    
+    orders = query.order_by(Order.date_created.desc()).paginate(
         page=page, per_page=20, error_out=False
     )
+    
     return render_template('admin/orders.html', orders=orders)
 
-@admin.route('/admin/order/<int:order_id>')
+@admin.route('/admin/orders/<int:order_id>')
 @login_required
 @admin_required
 def order_detail(order_id):
@@ -189,19 +197,42 @@ def order_detail(order_id):
     order = Order.query.get_or_404(order_id)
     return render_template('admin/order_detail.html', order=order)
 
-@admin.route('/admin/order/<int:order_id>/update-status', methods=['POST'])
+@admin.route('/admin/orders/<int:order_id>/status', methods=['POST'])
 @login_required
 @admin_required
 def update_order_status(order_id):
     """Update order status"""
     order = Order.query.get_or_404(order_id)
     new_status = request.form.get('status')
-    if new_status in ['pending', 'paid', 'shipped', 'delivered', 'cancelled']:
+    
+    valid_statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
+    if new_status not in valid_statuses:
+        flash('Invalid status', 'error')
+        return redirect(url_for('admin.order_detail', order_id=order_id))
+    
+    # Check if the status transition is valid
+    current_status = order.status
+    valid_transitions = {
+        'pending': ['processing', 'cancelled'],
+        'processing': ['shipped', 'cancelled'],
+        'shipped': ['delivered', 'cancelled'],
+        'delivered': [],  # Final state
+        'cancelled': []   # Final state
+    }
+    
+    if new_status not in valid_transitions.get(current_status, []):
+        flash(f'Cannot change order status from {current_status} to {new_status}', 'error')
+        return redirect(url_for('admin.order_detail', order_id=order_id))
+    
+    try:
         order.status = new_status
+        order.date_updated = datetime.utcnow()
         db.session.commit()
-        flash('Order status updated successfully!', 'success')
-    else:
-        flash('Invalid status!', 'danger')
+        flash(f'Order status updated to {new_status}', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error updating order status', 'error')
+    
     return redirect(url_for('admin.order_detail', order_id=order_id))
 
 @admin.route('/admin/users')

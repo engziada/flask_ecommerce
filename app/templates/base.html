@@ -86,6 +86,14 @@
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">Profile</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('auth.orders') }}">Orders</a></li>
+                            {% if current_user.is_admin %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.index') }}">Admin Dashboard</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.products') }}">Manage Products</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.categories') }}">Manage Categories</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.orders') }}">Manage Orders</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.users') }}">Manage Users</a></li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Logout</a></li>
                         </ul>

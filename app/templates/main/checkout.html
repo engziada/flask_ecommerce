@@ -62,7 +62,7 @@
 
         <!-- Checkout Form -->
         <div class="col-md-8 order-md-1">
-            <form id="checkout-form" method="POST" action="{{ url_for('shop.process_checkout') }}">
+            <form id="checkout-form" method="POST" action="{{ url_for('main.process_checkout') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 
                 <!-- Shipping Address -->
@@ -272,6 +272,28 @@ document.getElementById('cc_cvv').addEventListener('input', function(e) {
 document.getElementById('phone').addEventListener('input', function(e) {
     let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
     e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const addressSelect = document.getElementById('shipping_address');
+    const newAddressForm = document.getElementById('new-address-form');
+    const requiredFields = newAddressForm.querySelectorAll('input[required], select[required]');
+
+    function toggleAddressForm() {
+        const showNewForm = addressSelect.value === 'new';
+        newAddressForm.style.display = showNewForm ? 'block' : 'none';
+        
+        // Toggle required attributes
+        requiredFields.forEach(field => {
+            field.required = showNewForm;
+        });
+    }
+
+    if (addressSelect) {
+        addressSelect.addEventListener('change', toggleAddressForm);
+        // Initial state
+        toggleAddressForm();
+    }
 });
 </script>
 {% endblock %}

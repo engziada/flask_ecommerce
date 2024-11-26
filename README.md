@@ -42,6 +42,39 @@ A modern e-commerce web application built with Flask, featuring a responsive des
   - Add to cart functionality
   - Consistent experience
 
+- Order Management System
+  - Comprehensive order processing workflow
+  - Status tracking with color-coded badges
+  - Automated inventory management
+  - Multiple address support
+
+  #### Order Status Flow
+```
+[pending] → [processing] → [shipped] → [delivered]
+    ↓           ↓            ↓
+    └──────────[cancelled]───┘
+```
+
+Status Descriptions:
+- `pending`: Initial state when order is placed
+- `processing`: Order is being prepared for shipping
+- `shipped`: Order has been handed over to shipping carrier
+- `delivered`: Order has been received by customer
+- `cancelled`: Order cancelled (possible before delivery)
+
+#### Admin Features
+- Order filtering by status
+- Detailed order view with items and shipping info
+- Restricted status transitions
+- Order history tracking
+- Automated stock management
+
+#### Customer Features
+- Order tracking
+- Order history view
+- Multiple shipping addresses
+- Real-time order status updates
+
 ### Technical Features
 - CSRF Protection
 - Form Validation

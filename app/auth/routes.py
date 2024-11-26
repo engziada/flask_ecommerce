@@ -250,5 +250,5 @@ def delete_address(address_id):
 @bp.route('/orders')
 @login_required
 def orders():
-    orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
+    orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.date_created.desc()).all()
     return render_template('auth/orders.html', orders=orders)

@@ -28,10 +28,16 @@
                         {% for item in order.items %}
                         <div class="d-flex mb-3">
                             <div class="flex-shrink-0">
-                                <img src="{{ item.product.image_url }}" alt="{{ item.product.name }}" class="img-thumbnail" style="width: 100px;">
+                                {% if item.ordered_product.image_url %}
+                                <img src="{{ item.ordered_product.image_url }}" alt="{{ item.ordered_product.name }}" class="img-thumbnail" style="width: 100px;">
+                                {% else %}
+                                <div class="bg-light rounded text-center py-4" style="width: 100px;">
+                                    <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="flex-grow-1 ms-3">
-                                <h6 class="mb-1">{{ item.product.name }}</h6>
+                                <h6 class="mb-1">{{ item.ordered_product.name }}</h6>
                                 <p class="mb-1">Quantity: {{ item.quantity }}</p>
                                 <p class="mb-0">Price: ${{ "%.2f"|format(item.price) }}</p>
                             </div>

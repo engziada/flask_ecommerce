@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app, jsonify, g
+from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app, jsonify, g, session
 from flask_login import login_required, current_user
 from app.models.product import Product
 from app.models.category import Category
@@ -12,6 +12,7 @@ from flask_mail import Message
 from datetime import datetime
 from app.main import bp
 from app.models.address import Address  # Import the Address model
+from app.models.order import Order, OrderItem  # Import the Order and OrderItem models
 from sqlalchemy import func
 
 @bp.before_app_request
@@ -399,6 +400,93 @@ def checkout():
     except Exception as e:
         current_app.logger.error(f'Error in checkout route: {str(e)}')
         return render_template('errors/500.html'), 500
+
+@bp.route('/process-checkout', methods=['POST'])
+@login_required
+def process_checkout():
+    try:
+        cart_items = Cart.query.filter_by(user_id=current_user.id).all()
+        if not cart_items:
+            flash('Your cart is empty', 'error')
+            return redirect(url_for('main.checkout'))
+        
+        # Get or create shipping address
+        address_id = request.form.get('shipping_address')
+        if address_id == 'new' or not address_id:  # Handle both 'new' and empty address_id
+            # Create new address
+            address = Address(
+                user_id=current_user.id,
+                name=request.form.get('name'),
+                street=request.form.get('street'),
+                city=request.form.get('city'),
+                state=request.form.get('state'),
+                zip_code=request.form.get('zip_code'),
+                country=request.form.get('country'),
+                phone=request.form.get('phone')
+            )
+            # Always save new addresses during checkout
+            db.session.add(address)
+            db.session.commit()
+        else:
+            # Get existing address
+            try:
+                address = Address.query.get_or_404(int(address_id))
+                if address.user_id != current_user.id:
+                    raise ValueError("Invalid address")
+            except (ValueError, TypeError):
+                flash('Invalid address selected', 'error')
+                return redirect(url_for('main.checkout'))
+        
+        # Calculate totals
+        subtotal = sum(item.product.price * item.quantity for item in cart_items)
+        shipping_cost = 10.00  # Fixed shipping cost
+        discount = session.get('discount', 0)
+        total = subtotal + shipping_cost - discount
+        
+        # Create order
+        order = Order(
+            user_id=current_user.id,
+            shipping_address_id=address.id,
+            status='pending',
+            subtotal=subtotal,
+            shipping_cost=shipping_cost,
+            discount=discount,
+            total=total,
+            date_created=datetime.utcnow()
+        )
+        db.session.add(order)
+        
+        # Add order items
+        for cart_item in cart_items:
+            order_item = OrderItem(
+                order=order,
+                product_id=cart_item.product_id,
+                quantity=cart_item.quantity,
+                price=cart_item.product.price
+            )
+            db.session.add(order_item)
+            
+            # Update product stock
+            product = cart_item.product
+            product.stock -= cart_item.quantity
+            db.session.add(product)
+        
+        # Clear cart
+        for item in cart_items:
+            db.session.delete(item)
+        
+        db.session.commit()
+        
+        # Clear discount from session
+        session.pop('discount', None)
+        
+        flash('Order placed successfully!', 'success')
+        return redirect(url_for('auth.orders'))
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error in process_checkout: {str(e)}')
+        flash('An error occurred while processing your order.', 'error')
+        return redirect(url_for('main.checkout'))
 
 @bp.route('/api/product/<int:product_id>')
 def get_product_details(product_id):
