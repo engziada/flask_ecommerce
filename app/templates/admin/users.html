@@ -5,59 +5,58 @@
 {% block content %}
 <div class="container mt-4">
     <h1>User Management</h1>
-
+    
     <div class="table-responsive mt-4">
-        <table class="table">
+        <table class="table table-striped">
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Name</th>
                     <th>Email</th>
+                    <th>Name</th>
+                    <th>Registered</th>
+                    <th>Last Login</th>
                     <th>Role</th>
-                    <th>Joined</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                {% for user in users.items %}
+                {% for user in users %}
                 <tr>
-                    <td>{{ user.id }}</td>
-                    <td>{{ user.name }}</td>
+                    <td>#{{ user.id }}</td>
                     <td>{{ user.email }}</td>
                     <td>
-                        <span class="badge {% if user.is_admin %}bg-danger{% else %}bg-primary{% endif %}">
+                        {% if user.first_name and user.last_name %}
+                            {{ user.first_name }} {{ user.last_name }}
+                        {% else %}
+                            <em class="text-muted">Not provided</em>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.date_registered.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}</td>
+                    <td>
+                        <span class="badge {% if user.is_admin %}bg-primary{% else %}bg-secondary{% endif %}">
                             {{ 'Admin' if user.is_admin else 'User' }}
                         </span>
                     </td>
-                    <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
                     <td>
-                        <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#toggleAdminModal{{ user.id }}">
-                            {{ 'Remove Admin' if user.is_admin else 'Make Admin' }}
-                        </button>
+                        {% if current_user.id != user.id %}
+                        <form action="{{ url_for('admin.toggle_admin', user_id=user.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm {% if user.is_admin %}btn-danger{% else %}btn-success{% endif %}">
+                                {% if user.is_admin %}
+                                    <i class="bi bi-person-dash"></i> Remove Admin
+                                {% else %}
+                                    <i class="bi bi-person-plus"></i> Make Admin
+                                {% endif %}
+                            </button>
+                        </form>
+                        {% endif %}
                     </td>
                 </tr>
-
-                <!-- Toggle Admin Modal -->
-                <div class="modal fade" id="toggleAdminModal{{ user.id }}" tabindex="-1">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">{{ 'Remove Admin' if user.is_admin else 'Make Admin' }}</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p>Are you sure you want to {{ 'remove admin privileges from' if user.is_admin else 'make' }} {{ user.name }} {{ '' if user.is_admin else 'an admin' }}?</p>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <form action="{{ url_for('admin.toggle_admin', user_id=user.id) }}" method="POST" class="d-inline">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-warning">Confirm</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center">No users found.</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -29,7 +29,7 @@ class Product(db.Model):
     cart_items = db.relationship('Cart', backref=db.backref('product', lazy='select'), lazy='dynamic', cascade='all, delete-orphan')
     wishlist_items = db.relationship('Wishlist', backref=db.backref('product', lazy='select'), lazy='dynamic', cascade='all, delete-orphan')
 
-    def __init__(self, name, description, price, category_id, stock=0, image_url=None, sku=None, weight=None, dimensions=None):
+    def __init__(self, name, description, price, category_id, stock=0, image_url=None, sku=None, weight=None, dimensions=None, is_active=True):
         self.name = name
         self.description = description
         self.price = price
@@ -39,6 +39,7 @@ class Product(db.Model):
         self.sku = sku
         self.weight = weight
         self.dimensions = dimensions
+        self.is_active = is_active
     
     @property
     def average_rating(self):

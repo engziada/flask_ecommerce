@@ -1,3 +1,4 @@
+from datetime import datetime
 from app.extensions import db
 
 class Category(db.Model):
@@ -8,6 +9,8 @@ class Category(db.Model):
     name = db.Column(db.String(64), unique=True, nullable=False)
     description = db.Column(db.Text)
     slug = db.Column(db.String(64), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     products = db.relationship('Product', backref=db.backref('category', lazy='select'), lazy='dynamic')
@@ -16,6 +19,8 @@ class Category(db.Model):
         self.name = name
         self.description = description
         self.slug = self._generate_slug()
+        self.created_at = datetime.utcnow()
+        self.updated_at = self.created_at
 
     def _generate_slug(self):
         """Generate a URL-friendly slug from the category name."""

@@ -11,7 +11,7 @@ from datetime import datetime
 @login_required
 def orders():
     """Display user's orders"""
-    orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
+    orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.date_created.desc()).all()
     return render_template('order/orders.html', orders=orders)
 
 @bp.route('/checkout')
@@ -55,29 +55,53 @@ def process_checkout():
         flash('Your cart is empty.', 'warning')
         return redirect(url_for('cart.cart'))
     
-    address_id = request.form.get('address')
+    address_id = request.form.get('shipping_address')
     if not address_id:
         flash('Please select a delivery address.', 'danger')
         return redirect(url_for('order.checkout'))
     
-    address = Address.query.get_or_404(address_id)
-    if address.user_id != current_user.id:
-        flash('Invalid address selected.', 'danger')
-        return redirect(url_for('order.checkout'))
+    # Handle new address creation
+    if address_id == 'new':
+        try:
+            address = Address(
+                user_id=current_user.id,
+                name=request.form.get('name'),
+                street=request.form.get('street'),
+                city=request.form.get('city'),
+                state=request.form.get('state'),
+                postal_code=request.form.get('zip_code'),
+                country=request.form.get('country', 'US'),
+                phone=request.form.get('phone')
+            )
+            db.session.add(address)
+            db.session.flush()  # Get the new address ID
+            address_id = address.id
+        except Exception as e:
+            flash('Error creating new address. Please try again.', 'danger')
+            return redirect(url_for('order.checkout'))
+    else:
+        address = Address.query.get_or_404(address_id)
+        if address.user_id != current_user.id:
+            flash('Invalid address selected.', 'danger')
+            return redirect(url_for('order.checkout'))
     
     try:
-        # Calculate total
-        total = sum(item.product.price * item.quantity for item in cart_items)
-        discount = session.get('discount', 0)
-        final_total = total - (total * discount / 100)
+        # Calculate totals
+        subtotal = sum(item.product.price * item.quantity for item in cart_items)
+        shipping_cost = 10.0  # Fixed shipping cost
+        discount_percent = session.get('discount', 0)
+        discount_amount = (subtotal * discount_percent / 100)
+        total = subtotal + shipping_cost - discount_amount
         
         # Create order
         order = Order(
             user_id=current_user.id,
-            address_id=address_id,
-            total_amount=final_total,
-            status='pending',
-            created_at=datetime.utcnow()
+            shipping_address_id=address_id,
+            subtotal=subtotal,
+            shipping_cost=shipping_cost,
+            discount=discount_amount,
+            total=total,
+            status='pending'
         )
         db.session.add(order)
         db.session.flush()  # Get order ID
@@ -113,7 +137,7 @@ def process_checkout():
 def order_detail(order_id):
     """Display order details"""
     order = Order.query.filter_by(id=order_id, user_id=current_user.id).first_or_404()
-    return render_template('orders/order_detail.html', order=order)
+    return render_template('order/order_detail.html', order=order)
 
 @bp.route('/apply-promo', methods=['POST'])
 @login_required
@@ -145,3 +169,19 @@ def apply_promo():
             'success': False,
             'message': 'Invalid promo code'
         })
+
+@bp.route('/<int:order_id>/cancel', methods=['POST'])
+@login_required
+def cancel_order(order_id):
+    order = Order.query.get_or_404(order_id)
+    if order.user_id != current_user.id:
+        flash('You cannot cancel this order.', 'error')
+        return redirect(url_for('order.orders'))
+    
+    if order.status not in ['pending', 'processing']:
+        flash('This order cannot be cancelled.', 'error')
+        return redirect(url_for('order.order_detail', order_id=order.id))
+    
+    order.cancel_order('user')
+    flash('Order has been cancelled.', 'success')
+    return redirect(url_for('order.order_detail', order_id=order.id))

@@ -1,5 +1,5 @@
 from flask import Blueprint
 
-bp = Blueprint('admin', __name__)
+bp = Blueprint('admin', __name__, url_prefix='/admin')
 
-from app.admin import routes
+from . import routes  # Import routes at the end to avoid circular imports

@@ -37,9 +37,6 @@ def create_app(config_class=Config):
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
 
-    from app.admin import bp as admin_bp
-    app.register_blueprint(admin_bp)
-
     from app.shop import bp as shop_bp
     app.register_blueprint(shop_bp)
 
@@ -54,6 +51,10 @@ def create_app(config_class=Config):
 
     from app.address import bp as address_bp
     app.register_blueprint(address_bp, url_prefix='/address')
+
+    # Register admin blueprint
+    from app.admin import bp as admin_bp
+    app.register_blueprint(admin_bp)  # URL prefix is defined in the blueprint
 
     # Print out all registered routes for debugging
     print("\nRegistered Routes:")

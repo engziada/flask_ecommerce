@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import render_template, request, flash, redirect, url_for
 from flask_login import login_required, current_user
 from app.models.product import Product
 from app.models.category import Category
@@ -10,8 +10,8 @@ import os
 from werkzeug.utils import secure_filename
 from flask import current_app
 from datetime import datetime
-
-bp = Blueprint('admin', __name__)
+from . import bp
+from .forms import CategoryForm, ProductForm
 
 def admin_required(f):
     @wraps(f)
@@ -54,17 +54,21 @@ def products():
 @admin_required
 def new_product():
     """Create new product page"""
-    if request.method == 'POST':
+    form = ProductForm()
+    categories = Category.query.all()
+    form.category_id.choices = [(c.id, c.name) for c in categories]
+
+    if form.validate_on_submit():
         product = Product(
-            name=request.form['name'],
-            description=request.form['description'],
-            price=float(request.form['price']),
-            stock=int(request.form['stock']),
-            category_id=int(request.form['category_id']),
-            sku=request.form.get('sku'),
-            weight=float(request.form.get('weight', 0)),
-            dimensions=request.form.get('dimensions'),
-            is_active=bool(request.form.get('is_active'))
+            name=form.name.data,
+            description=form.description.data,
+            price=form.price.data,
+            stock=form.stock.data,
+            category_id=form.category_id.data,
+            sku=form.sku.data,
+            weight=form.weight.data,
+            dimensions=form.dimensions.data,
+            is_active=form.is_active.data
         )
 
         # Handle image upload
@@ -79,9 +83,8 @@ def new_product():
         db.session.commit()
         flash('Product created successfully!', 'success')
         return redirect(url_for('admin.products'))
-    
-    categories = Category.query.all()
-    return render_template('admin/product_form.html', categories=categories)
+
+    return render_template('admin/product_form.html', form=form)
 
 @bp.route('/product/<int:product_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -89,16 +92,12 @@ def new_product():
 def edit_product(product_id):
     """Edit product page"""
     product = Product.query.get_or_404(product_id)
-    if request.method == 'POST':
-        product.name = request.form['name']
-        product.description = request.form['description']
-        product.price = float(request.form['price'])
-        product.stock = int(request.form['stock'])
-        product.category_id = int(request.form['category_id'])
-        product.sku = request.form.get('sku')
-        product.weight = float(request.form.get('weight', 0))
-        product.dimensions = request.form.get('dimensions')
-        product.is_active = bool(request.form.get('is_active'))
+    form = ProductForm(obj=product)
+    categories = Category.query.all()
+    form.category_id.choices = [(c.id, c.name) for c in categories]
+
+    if form.validate_on_submit():
+        form.populate_obj(product)
 
         # Handle image upload
         if 'image' in request.files:
@@ -111,9 +110,8 @@ def edit_product(product_id):
         db.session.commit()
         flash('Product updated successfully!', 'success')
         return redirect(url_for('admin.products'))
-    
-    categories = Category.query.all()
-    return render_template('admin/product_form.html', product=product, categories=categories)
+
+    return render_template('admin/product_form.html', form=form, product=product)
 
 @bp.route('/product/<int:product_id>/delete', methods=['POST'])
 @login_required
@@ -132,6 +130,19 @@ def delete_product(product_id):
 def categories():
     """Category management page"""
     categories = Category.query.all()
+    
+    # Update any categories missing timestamps
+    from datetime import datetime
+    update_needed = False
+    for category in categories:
+        if not category.created_at:
+            category.created_at = datetime.utcnow()
+            category.updated_at = category.created_at
+            update_needed = True
+    
+    if update_needed:
+        db.session.commit()
+        
     return render_template('admin/categories.html', categories=categories)
 
 @bp.route('/category/new', methods=['GET', 'POST'])
@@ -139,13 +150,17 @@ def categories():
 @admin_required
 def new_category():
     """Create new category page"""
-    if request.method == 'POST':
-        category = Category(name=request.form['name'])
+    form = CategoryForm()
+    if form.validate_on_submit():
+        category = Category(
+            name=form.name.data,
+            description=form.description.data
+        )
         db.session.add(category)
         db.session.commit()
         flash('Category created successfully!', 'success')
         return redirect(url_for('admin.categories'))
-    return render_template('admin/category_form.html')
+    return render_template('admin/category_form.html', form=form)
 
 @bp.route('/category/<int:category_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -153,12 +168,14 @@ def new_category():
 def edit_category(category_id):
     """Edit category page"""
     category = Category.query.get_or_404(category_id)
-    if request.method == 'POST':
-        category.name = request.form['name']
+    form = CategoryForm(obj=category)
+    if form.validate_on_submit():
+        form.populate_obj(category)
+        category.updated_at = datetime.utcnow()
         db.session.commit()
         flash('Category updated successfully!', 'success')
         return redirect(url_for('admin.categories'))
-    return render_template('admin/category_form.html', category=category)
+    return render_template('admin/category_form.html', category=category, form=form)
 
 @bp.route('/category/<int:category_id>/delete', methods=['POST'])
 @login_required
@@ -177,13 +194,7 @@ def delete_category(category_id):
 def orders():
     """Order management page"""
     page = request.args.get('page', 1, type=int)
-    status_filter = request.args.get('status', None)
-    
-    query = Order.query
-    if status_filter:
-        query = query.filter_by(status=status_filter)
-    
-    orders = query.order_by(Order.date_created.desc()).paginate(
+    orders = Order.query.order_by(Order.date_created.desc()).paginate(
         page=page, per_page=20, error_out=False)
     return render_template('admin/orders.html', orders=orders)
 
@@ -199,39 +210,25 @@ def order_detail(order_id):
 @login_required
 @admin_required
 def update_order_status(order_id):
-    """Update order status"""
     order = Order.query.get_or_404(order_id)
-    new_status = request.form.get('status')
     
-    valid_statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
-    if new_status not in valid_statuses:
-        flash('Invalid status', 'error')
-        return redirect(url_for('admin.order_detail', order_id=order_id))
+    if not order.can_update_status:
+        flash('This order was cancelled by the user and cannot be modified.', 'error')
+        return redirect(url_for('admin.order_detail', order_id=order.id))
     
-    # Check if the status transition is valid
-    current_status = order.status
-    valid_transitions = {
-        'pending': ['processing', 'cancelled'],
-        'processing': ['shipped', 'cancelled'],
-        'shipped': ['delivered', 'cancelled'],
-        'delivered': [],  # Final state
-        'cancelled': []   # Final state
-    }
+    status = request.form.get('status')
+    if status not in ['pending', 'processing', 'shipped', 'delivered', 'cancelled']:
+        flash('Invalid status.', 'error')
+        return redirect(url_for('admin.order_detail', order_id=order.id))
     
-    if new_status not in valid_transitions.get(current_status, []):
-        flash(f'Cannot change order status from {current_status} to {new_status}', 'error')
-        return redirect(url_for('admin.order_detail', order_id=order_id))
-    
-    try:
-        order.status = new_status
-        order.date_updated = datetime.utcnow()
+    if status == 'cancelled':
+        order.cancel_order('admin')
+    else:
+        order.status = status
         db.session.commit()
-        flash(f'Order status updated to {new_status}', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash('Error updating order status', 'error')
     
-    return redirect(url_for('admin.order_detail', order_id=order_id))
+    flash(f'Order status updated to {status}.', 'success')
+    return redirect(url_for('admin.order_detail', order_id=order.id))
 
 @bp.route('/users')
 @login_required
@@ -246,7 +243,6 @@ def users():
 @login_required
 @admin_required
 def toggle_admin(user_id):
-    """Toggle user's admin status"""
     user = User.query.get_or_404(user_id)
     
     # Prevent removing admin status from the last admin
@@ -256,10 +252,12 @@ def toggle_admin(user_id):
     
     # Prevent self-demotion
     if user == current_user:
-        flash('You cannot change your own admin status!', 'danger')
+        flash("You cannot change your own admin status!", 'danger')
         return redirect(url_for('admin.users'))
     
     user.is_admin = not user.is_admin
     db.session.commit()
-    flash(f"{'Removed admin status from' if not user.is_admin else 'Made'} {user.name} {'an admin' if user.is_admin else ''} successfully!", 'success')
+    
+    full_name = f"{user.first_name} {user.last_name}" if user.first_name and user.last_name else user.email
+    flash(f"{'Removed admin status from' if not user.is_admin else 'Made'} {full_name} {'an admin' if user.is_admin else ''} successfully!", 'success')
     return redirect(url_for('admin.users'))

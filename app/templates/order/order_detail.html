@@ -1,38 +1,179 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .order-status-tracker {
+        padding: 30px 0;
+        margin-bottom: 30px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+    .status-step {
+        text-align: center;
+        position: relative;
+    }
+    .status-step:not(:last-child):after {
+        content: '';
+        position: absolute;
+        top: 30px;
+        left: 50%;
+        width: 100%;
+        height: 2px;
+        background-color: #dee2e6;
+        z-index: 1;
+    }
+    .status-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: #fff;
+        border: 2px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+        position: relative;
+        z-index: 2;
+    }
+    .status-icon i {
+        font-size: 24px;
+        color: #6c757d;
+    }
+    .status-complete .status-icon {
+        background-color: #198754;
+        border-color: #198754;
+    }
+    .status-complete .status-icon i {
+        color: #fff;
+    }
+    .status-active .status-icon {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    .status-active .status-icon i {
+        color: #fff;
+    }
+    .status-complete:after {
+        background-color: #198754 !important;
+    }
+    .card.cancelled {
+        opacity: 0.8;
+        background-color: #f8f9fa;
+    }
+    .card.cancelled::before {
+        content: 'CANCELLED';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 4rem;
+        font-weight: bold;
+        color: rgba(220, 53, 69, 0.2);
+        pointer-events: none;
+        z-index: 1;
+        letter-spacing: 0.5rem;
+        white-space: nowrap;
+    }
+    .cancelled .text-muted {
+        color: #6c757d !important;
+    }
+    .cancelled-banner {
+        background-color: #dc3545;
+        color: white;
+        padding: 0.5rem;
+        margin: -1rem -1rem 1rem -1rem;
+        border-radius: 0.375rem 0.375rem 0 0;
+        text-align: center;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
 {% block title %}Order Details{% endblock %}
 
 {% block content %}
 <div class="container my-4">
     <h2>Order Details</h2>
-    <div class="card">
+    <div class="card mb-4 position-relative {{ 'cancelled' if order.status == 'cancelled' else '' }}">
+        {% if order.status == 'cancelled' %}
+        <div class="cancelled-banner">
+            <i class="fas fa-ban"></i> This order has been cancelled
+        </div>
+        {% endif %}
         <div class="card-header">
             <div class="row">
                 <div class="col">
                     <h5 class="mb-0">Order #{{ order.id }}</h5>
                 </div>
                 <div class="col text-end">
-                    <span class="badge bg-{{ order.status_badge }}">{{ order.status }}</span>
+                    <span class="badge bg-{{ order.status_color }}">{{ order.status }}</span>
+                    {% if order.status == 'pending' %}
+                    <button type="button" class="btn btn-danger ms-2" data-bs-toggle="modal" data-bs-target="#cancelOrderModal">
+                        <i class="fas fa-times"></i> Cancel Order
+                    </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
         <div class="card-body">
+            <!-- Order Status Tracker -->
+            <div class="order-status-tracker">
+                <div class="row">
+                    {% set status_map = {
+                        'pending': 0,
+                        'processing': 1,
+                        'shipped': 2,
+                        'delivered': 3
+                    } %}
+                    {% set current_step = status_map.get(order.status, -1) %}
+                    
+                    <div class="col-3 status-step {{ 'status-complete' if 0 < current_step else 'status-active' if 0 == current_step else '' }}">
+                        <div class="status-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="status-label">Pending</div>
+                    </div>
+                    
+                    <div class="col-3 status-step {{ 'status-complete' if 1 < current_step else 'status-active' if 1 == current_step else '' }}">
+                        <div class="status-icon">
+                            <i class="fas fa-gear"></i>
+                        </div>
+                        <div class="status-label">Processing</div>
+                    </div>
+                    
+                    <div class="col-3 status-step {{ 'status-complete' if 2 < current_step else 'status-active' if 2 == current_step else '' }}">
+                        <div class="status-icon">
+                            <i class="fas fa-truck"></i>
+                        </div>
+                        <div class="status-label">Shipped</div>
+                    </div>
+                    
+                    <div class="col-3 status-step {{ 'status-active' if 3 == current_step else '' }}">
+                        <div class="status-icon">
+                            <i class="fas fa-box-open"></i>
+                        </div>
+                        <div class="status-label">Delivered</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="row mb-4">
                 <div class="col-md-6">
                     <h6>Shipping Address</h6>
-                    <p class="mb-0">{{ order.address.name }}</p>
-                    <p class="mb-0">{{ order.address.address_line1 }}</p>
-                    {% if order.address.address_line2 %}
-                        <p class="mb-0">{{ order.address.address_line2 }}</p>
+                    <p class="mb-0">{{ order.shipping_address.name }}</p>
+                    <p class="mb-0">{{ order.shipping_address.street }}</p>
+                    {% if order.shipping_address.street2 %}
+                        <p class="mb-0">{{ order.shipping_address.street2 }}</p>
                     {% endif %}
-                    <p class="mb-0">{{ order.address.city }}, {{ order.address.state }} {{ order.address.postal_code }}</p>
-                    <p class="mb-0">{{ order.address.country }}</p>
-                    <p>Phone: {{ order.address.phone }}</p>
+                    <p class="mb-0">{{ order.shipping_address.city }}, {{ order.shipping_address.state }} {{ order.shipping_address.postal_code }}</p>
+                    <p class="mb-0">{{ order.shipping_address.country }}</p>
+                    <p>Phone: {{ order.shipping_address.phone }}</p>
                 </div>
                 <div class="col-md-6 text-md-end">
                     <h6>Order Information</h6>
-                    <p class="mb-0">Date: {{ order.created_at.strftime('%B %d, %Y') }}</p>
-                    <p>Time: {{ order.created_at.strftime('%I:%M %p') }}</p>
+                    <p class="mb-0">Date: {{ order.date_created.strftime('%B %d, %Y') }}</p>
+                    <p>Time: {{ order.date_created.strftime('%I:%M %p') }}</p>
                 </div>
             </div>
 
@@ -50,20 +191,20 @@
                         {% for item in order.items %}
                         <tr>
                             <td>
-                                <a href="{{ url_for('shop.product_detail', product_id=item.product.id) }}">
-                                    {{ item.product.name }}
+                                <a href="{{ url_for('shop.product_detail', product_id=item.ordered_product.id) }}">
+                                    {{ item.ordered_product.name }}
                                 </a>
                             </td>
                             <td class="text-center">{{ item.quantity }}</td>
                             <td class="text-end">${{ "%.2f"|format(item.price) }}</td>
-                            <td class="text-end">${{ "%.2f"|format(item.price * item.quantity) }}</td>
+                            <td class="text-end">${{ "%.2f"|format(item.subtotal) }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
-                            <td class="text-end">${{ "%.2f"|format(order.total_amount) }}</td>
+                            <td class="text-end">${{ "%.2f"|format(order.subtotal) }}</td>
                         </tr>
                         {% if order.discount %}
                         <tr>
@@ -73,10 +214,38 @@
                         {% endif %}
                         <tr>
                             <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                            <td class="text-end"><strong>${{ "%.2f"|format(order.total_amount) }}</strong></td>
+                            <td class="text-end"><strong>${{ "%.2f"|format(order.total) }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Order Modal -->
+<div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelOrderModalLabel">Cancel Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to cancel this order? This action cannot be undone.</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    Only orders in 'pending' status can be cancelled.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <form action="{{ url_for('order.cancel_order', order_id=order.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times"></i> Confirm Cancellation
+                    </button>
+                </form>
             </div>
         </div>
     </div>

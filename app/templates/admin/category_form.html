@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h4>{{ 'Edit' if category else 'New' }} Category</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.name.label }}</label>
+                            {{ form.name(class="form-control", value=form.name.data if category else '') }}
+                            {% if form.name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.name.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.description.label }}</label>
+                            {{ form.description(class="form-control", rows=3, value=form.description.data if category else '') }}
+                            {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.description.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if category %}
+                        <div class="mb-3">
+                            <label class="form-label">Created At</label>
+                            <p class="form-control-static">{{ category.created_at.strftime('%Y-%m-%d %H:%M:%S') if category.created_at else 'N/A' }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Last Updated</label>
+                            <p class="form-control-static">{{ category.updated_at.strftime('%Y-%m-%d %H:%M:%S') if category.updated_at else 'N/A' }}</p>
+                        </div>
+                        {% if category.products.count() > 0 %}
+                        <div class="mb-3">
+                            <label class="form-label">Products in Category</label>
+                            <div class="list-group">
+                                {% for product in category.products %}
+                                <a href="{{ url_for('admin.edit_product', product_id=product.id) }}" class="list-group-item list-group-item-action">
+                                    {{ product.name }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.categories') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">{{ 'Update' if category else 'Create' }} Category</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

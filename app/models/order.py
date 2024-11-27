@@ -9,6 +9,7 @@ class Order(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     shipping_address_id = db.Column(db.Integer, db.ForeignKey('addresses.id'), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='pending')
+    cancelled_by = db.Column(db.String(20), nullable=True)  # 'user' or 'admin'
     subtotal = db.Column(db.Float, nullable=False)
     shipping_cost = db.Column(db.Float, nullable=False)
     discount = db.Column(db.Float, default=0.0)
@@ -29,6 +30,19 @@ class Order(db.Model):
             'cancelled': 'danger'
         }
         return status_colors.get(self.status, 'secondary')
+    
+    @property
+    def can_update_status(self):
+        """Check if order status can be updated"""
+        if self.status == 'cancelled' and self.cancelled_by == 'user':
+            return False
+        return True
+    
+    def cancel_order(self, cancelled_by):
+        """Cancel order and track who cancelled it"""
+        self.status = 'cancelled'
+        self.cancelled_by = cancelled_by
+        db.session.commit()
     
     def __repr__(self):
         return f'<Order {self.id}>'

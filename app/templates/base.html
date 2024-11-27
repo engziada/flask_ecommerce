@@ -97,6 +97,25 @@
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">Profile</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('order.orders') }}">Orders</a></li>
+                            {% if current_user.is_admin %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header">Admin Panel</h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.index') }}">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.products') }}">
+                                <i class="bi bi-box-seam"></i> Products
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.categories') }}">
+                                <i class="bi bi-tags"></i> Categories
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.orders') }}">
+                                <i class="bi bi-bag"></i> Orders
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.users') }}">
+                                <i class="bi bi-people"></i> Users
+                            </a></li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Logout</a></li>
                         </ul>
