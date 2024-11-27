@@ -226,30 +226,68 @@
     form.addEventListener('submit', async function(event) {
         event.preventDefault();
         
+        const submitButton = form.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        
         const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
         
         if (paymentMethod === 'card') {
-            // Handle card payment
-            const { paymentIntent, error } = await stripe.confirmCardPayment('{{ client_secret }}', {
-                payment_method: {
-                    card: card,
-                    billing_details: {
-                        name: document.getElementById('name').value
+            try {
+                // First create a payment intent
+                const response = await fetch('{{ url_for("order.create_payment") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
                     }
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    const errorElement = document.getElementById('card-errors');
+                    errorElement.textContent = data.error;
+                    submitButton.disabled = false;
+                    return;
                 }
-            });
+                
+                // Then confirm the payment with the client secret
+                const { paymentIntent, error } = await stripe.confirmCardPayment(data.clientSecret, {
+                    payment_method: {
+                        card: card,
+                        billing_details: {
+                            name: document.querySelector('select[name="shipping_address"] option:checked').text
+                        }
+                    }
+                });
 
-            if (error) {
+                if (error) {
+                    const errorElement = document.getElementById('card-errors');
+                    errorElement.textContent = error.message;
+                    submitButton.disabled = false;
+                } else {
+                    // Payment successful
+                    document.getElementById('payment_intent_id').value = paymentIntent.id;
+                    form.submit();
+                }
+            } catch (err) {
                 const errorElement = document.getElementById('card-errors');
-                errorElement.textContent = error.message;
-            } else {
-                // Payment successful
-                document.getElementById('payment_intent_id').value = paymentIntent.id;
-                form.submit();
+                errorElement.textContent = 'An error occurred processing your payment. Please try again.';
+                submitButton.disabled = false;
             }
         } else {
             // Handle COD payment - just submit the form
             form.submit();
+        }
+    });
+
+    // Handle card element errors
+    card.addEventListener('change', function(event) {
+        const displayError = document.getElementById('card-errors');
+        if (event.error) {
+            displayError.textContent = event.error.message;
+        } else {
+            displayError.textContent = '';
         }
     });
 </script>
