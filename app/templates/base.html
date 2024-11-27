@@ -7,6 +7,7 @@
     <title>{% block title %}{% endblock %} - Flask E-Commerce</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             padding-top: 56px; /* Height of the navbar */
@@ -16,6 +17,68 @@
             top: 0;
             width: 100%;
             z-index: 1030;
+        }
+        /* Toast Container */
+        .toast-container {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 1060;
+        }
+        /* Custom Toast Styling */
+        .custom-toast {
+            min-width: 300px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            opacity: 1;
+            transition: all 0.3s ease;
+        }
+        .custom-toast.fade-out {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+        .toast-header {
+            border-radius: 8px 8px 0 0;
+            padding: 12px 15px;
+            background: transparent;
+            border: none;
+            display: flex;
+            align-items: center;
+        }
+        .toast-body {
+            padding: 12px 15px;
+            font-size: 0.95rem;
+        }
+        /* Toast Icons and Colors */
+        .toast-icon {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        .toast-success {
+            border-left: 4px solid #198754;
+        }
+        .toast-success .toast-icon {
+            color: #198754;
+        }
+        .toast-error {
+            border-left: 4px solid #dc3545;
+        }
+        .toast-error .toast-icon {
+            color: #dc3545;
+        }
+        .toast-info {
+            border-left: 4px solid #0dcaf0;
+        }
+        .toast-info .toast-icon {
+            color: #0dcaf0;
+        }
+        .toast-warning {
+            border-left: 4px solid #ffc107;
+        }
+        .toast-warning .toast-icon {
+            color: #ffc107;
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -134,16 +197,38 @@
     </nav>
 
     <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1070; margin-top: 4.5rem;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    {% set toast_icon = {
+                        'success': 'fas fa-check-circle',
+                        'error': 'fas fa-exclamation-circle',
+                        'warning': 'fas fa-exclamation-triangle',
+                        'info': 'fas fa-info-circle',
+                        'danger': 'fas fa-exclamation-circle'
+                    } %}
+                    {% set toast_title = {
+                        'success': 'Success!',
+                        'error': 'Error!',
+                        'warning': 'Warning!',
+                        'info': 'Information',
+                        'danger': 'Error!'
+                    } %}
+                    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="5000">
+                        <div class="toast-header bg-{{ category }} text-white">
+                            <i class="{{ toast_icon[category] }} me-2"></i>
+                            <strong class="me-auto">{{ toast_title[category] }}</strong>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            {{ message }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
 
     <!-- Main Content -->
     <main class="container py-4">
@@ -184,31 +269,29 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}
 
-    <!-- Toast Notifications -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header">
-                <strong class="me-auto">Notification</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body"></div>
-        </div>
-    </div>
-
     <script>
-        // Initialize tooltips
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl)
-        })
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize all toasts
+            var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+            var toastList = toastElList.map(function(toastEl) {
+                return new bootstrap.Toast(toastEl, {
+                    autohide: true,
+                    delay: 5000
+                });
+            });
+            
+            // Show all toasts
+            toastList.forEach(toast => toast.show());
 
-        // Toast notification function
-        function showToast(message) {
-            const toastEl = document.querySelector('.toast');
-            const toast = new bootstrap.Toast(toastEl);
-            document.querySelector('.toast-body').textContent = message;
-            toast.show();
-        }
+            // Optional: Add fade-out animation before removal
+            toastElList.forEach(toastEl => {
+                toastEl.addEventListener('hidden.bs.toast', function() {
+                    setTimeout(() => {
+                        toastEl.remove();
+                    }, 300);
+                });
+            });
+        });
     </script>
 </body>
 </html>

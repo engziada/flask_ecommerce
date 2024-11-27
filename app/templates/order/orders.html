@@ -53,12 +53,31 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <p class="mb-1"><strong>Order Date:</strong> {{ order.date_created.strftime('%B %d, %Y') }}</p>
                             <p class="mb-1"><strong>Total Amount:</strong> <span class="{{ 'text-muted' if order.status == 'cancelled' else '' }}">${{ "%.2f"|format(order.total) }}</span></p>
-                            <p class="mb-0"><strong>Items:</strong> {{ order.items|length }}</p>
+                            <p class="mb-1"><strong>Items:</strong> {{ order.items|length }}</p>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <p class="mb-1">
+                                <strong>Order Status:</strong>
+                                <span class="badge bg-{{ order.status_color }}">{{ order.status.title() }}</span>
+                            </p>
+                            <p class="mb-1">
+                                <strong>Payment Status:</strong>
+                                <span class="badge bg-{{ order.payment_status_color }}">{{ order.payment_status.title() }}</span>
+                            </p>
+                            <p class="mb-1">
+                                <strong>Payment Method:</strong>
+                                <i class="fab fa-cc-stripe"></i> 
+                                {% if order.stripe_payment_id %}
+                                    Card (**** {{ order.stripe_payment_id[-4:] }})
+                                {% else %}
+                                    Card
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4">
                             <h6>Shipping Address</h6>
                             <p class="mb-0">{{ order.shipping_address.name }}</p>
                             <p class="mb-0">{{ order.shipping_address.street }}</p>

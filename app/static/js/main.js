@@ -15,14 +15,14 @@ function updateCart(productId, quantity) {
     .then(data => {
         if (data.success) {
             updateCartUI(data.cart_total, data.cart_items);
-            showToast('Cart updated successfully');
+            showToast('Cart updated successfully', 'success');
         } else {
-            showToast('Failed to update cart');
+            showToast('Failed to update cart', 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('An error occurred');
+        showToast('An error occurred', 'error');
     });
 }
 
@@ -53,42 +53,86 @@ function addToCart(productId) {
                     cartLink.appendChild(badge);
                 }
             }
-            // Show success notification using toast
-            showToast('Item added to cart successfully');
+            showToast('Product added to cart successfully', 'success');
         } else {
-            showToast(data.message || 'Failed to add item to cart');
+            showToast(data.message || 'Failed to add product to cart', 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('An error occurred while adding to cart');
+        showToast('An error occurred while adding to cart', 'error');
+    });
+}
+
+// Function to remove items from cart
+function removeFromCart(itemId) {
+    if (!confirm('Are you sure you want to remove this item from your cart?')) {
+        return;
+    }
+
+    fetch(`/cart/remove/${itemId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the item from UI
+            const itemElement = document.querySelector(`[data-cart-item="${itemId}"]`);
+            if (itemElement) {
+                itemElement.remove();
+            }
+            updateCartCount(data.cart_total);
+            showToast('Product removed from cart', 'success');
+        } else {
+            showToast(data.message || 'Failed to remove item from cart', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('An error occurred while removing from cart', 'error');
     });
 }
 
 // Wishlist functionality
 function toggleWishlist(productId) {
-    fetch('/wishlist/toggle', {
+    fetch(`/wishlist/toggle/${productId}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-        },
-        body: JSON.stringify({
-            product_id: productId
-        })
+        }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            updateWishlistUI(productId, data.in_wishlist);
-            showToast(data.message);
+            // Update wishlist icon
+            const wishlistIcon = document.querySelector(`[data-wishlist-product="${productId}"] i`);
+            if (wishlistIcon) {
+                wishlistIcon.classList.toggle('text-danger');
+                wishlistIcon.classList.toggle('bi-heart');
+                wishlistIcon.classList.toggle('bi-heart-fill');
+            }
+            
+            // Update wishlist count
+            updateWishlistCount(data.wishlist_total);
+            
+            // Show appropriate message
+            if (data.action === 'added') {
+                showToast('Product added to wishlist', 'success');
+            } else {
+                showToast('Product removed from wishlist', 'success');
+            }
         } else {
-            showToast('Failed to update wishlist');
+            showToast(data.message || 'Failed to update wishlist', 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('An error occurred');
+        showToast('An error occurred while updating wishlist', 'error');
     });
 }
 
@@ -101,7 +145,7 @@ function searchProducts(query) {
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('Search failed');
+        showToast('Search failed', 'error');
     });
 }
 
@@ -201,18 +245,60 @@ function loadCounts() {
         .catch(error => console.error('Error loading counts:', error));
 }
 
-// Notifications
+// Show toast notification
 function showToast(message, type = 'info') {
+    const toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) return;
+
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    
-    document.body.appendChild(toast);
-    
+    toast.className = `toast show custom-toast toast-${type}`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+
+    const icons = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-circle',
+        warning: 'fas fa-exclamation-triangle',
+        info: 'fas fa-info-circle'
+    };
+
+    const titles = {
+        success: 'Success!',
+        error: 'Error!',
+        warning: 'Warning!',
+        info: 'Information'
+    };
+
+    toast.innerHTML = `
+        <div class="toast-header">
+            <i class="${icons[type]} toast-icon me-2"></i>
+            <strong class="me-auto">${titles[type]}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            ${message}
+        </div>
+    `;
+
+    toastContainer.appendChild(toast);
+
+    // Auto-dismiss after 5 seconds
     setTimeout(() => {
         toast.classList.add('fade-out');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 5000);
+
+    // Close button functionality
+    const closeBtn = toast.querySelector('.btn-close');
+    closeBtn.addEventListener('click', () => {
+        toast.classList.add('fade-out');
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    });
 }
 
 // Initialize

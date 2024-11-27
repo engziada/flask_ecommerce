@@ -99,24 +99,47 @@
         {% if order.status == 'cancelled' %}
         <div class="cancelled-banner">
             <i class="fas fa-ban"></i> This order has been cancelled
+            {% if order.cancelled_by %}
+            by {{ order.cancelled_by }}
+            {% endif %}
         </div>
         {% endif %}
-        <div class="card-header">
-            <div class="row">
-                <div class="col">
-                    <h5 class="mb-0">Order #{{ order.id }}</h5>
+        <div class="card-body">
+            <!-- Order Information -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5>Order Information</h5>
+                    <p><strong>Order ID:</strong> #{{ order.id }}</p>
+                    <p><strong>Date:</strong> {{ order.date_created.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    <p>
+                        <strong>Order Status:</strong>
+                        <span class="badge bg-{{ order.status_color }}">{{ order.status.title() }}</span>
+                    </p>
+                    <p>
+                        <strong>Payment Status:</strong>
+                        <span class="badge bg-{{ order.payment_status_color }}">{{ order.payment_status.title() }}</span>
+                    </p>
+                    <p>
+                        <strong>Payment Method:</strong>
+                        {% if order.payment_method == 'card' %}
+                            <i class="fab fa-cc-stripe"></i> Stripe (Card ending in {{ order.stripe_payment_id[-4:] if order.stripe_payment_id else 'XXXX' }})
+                        {% else %}
+                            <i class="fas fa-money-bill-wave"></i> Cash on Delivery (COD)
+                        {% endif %}
+                    </p>
                 </div>
-                <div class="col text-end">
-                    <span class="badge bg-{{ order.status_color }}">{{ order.status }}</span>
-                    {% if order.status == 'pending' %}
-                    <button type="button" class="btn btn-danger ms-2" data-bs-toggle="modal" data-bs-target="#cancelOrderModal">
-                        <i class="fas fa-times"></i> Cancel Order
-                    </button>
-                    {% endif %}
+                <div class="col-md-6">
+                    <h5>Shipping Information</h5>
+                    <address>
+                        <strong>{{ order.shipping_address.name }}</strong><br>
+                        {{ order.shipping_address.street }}<br>
+                        {{ order.shipping_address.city }}, {{ order.shipping_address.state }} {{ order.shipping_address.postal_code }}<br>
+                        {{ order.shipping_address.country }}<br>
+                        <strong>Phone:</strong> {{ order.shipping_address.phone }}
+                    </address>
                 </div>
             </div>
-        </div>
-        <div class="card-body">
+
             <!-- Order Status Tracker -->
             <div class="order-status-tracker">
                 <div class="row">
@@ -155,25 +178,6 @@
                         </div>
                         <div class="status-label">Delivered</div>
                     </div>
-                </div>
-            </div>
-
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <h6>Shipping Address</h6>
-                    <p class="mb-0">{{ order.shipping_address.name }}</p>
-                    <p class="mb-0">{{ order.shipping_address.street }}</p>
-                    {% if order.shipping_address.street2 %}
-                        <p class="mb-0">{{ order.shipping_address.street2 }}</p>
-                    {% endif %}
-                    <p class="mb-0">{{ order.shipping_address.city }}, {{ order.shipping_address.state }} {{ order.shipping_address.postal_code }}</p>
-                    <p class="mb-0">{{ order.shipping_address.country }}</p>
-                    <p>Phone: {{ order.shipping_address.phone }}</p>
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <h6>Order Information</h6>
-                    <p class="mb-0">Date: {{ order.date_created.strftime('%B %d, %Y') }}</p>
-                    <p>Time: {{ order.date_created.strftime('%I:%M %p') }}</p>
                 </div>
             </div>
 

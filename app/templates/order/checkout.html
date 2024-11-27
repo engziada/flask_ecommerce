@@ -2,300 +2,255 @@
 
 {% block title %}Checkout{% endblock %}
 
+{% block extra_css %}
+<style>
+    .StripeElement {
+        box-sizing: border-box;
+        height: 40px;
+        padding: 10px 12px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        background-color: white;
+        box-shadow: 0 1px 3px 0 #e6ebf1;
+        -webkit-transition: box-shadow 150ms ease;
+        transition: box-shadow 150ms ease;
+    }
+
+    .StripeElement--focus {
+        box-shadow: 0 1px 3px 0 #cfd7df;
+    }
+
+    .StripeElement--invalid {
+        border-color: #fa755a;
+    }
+
+    .StripeElement--webkit-autofill {
+        background-color: #fefde5 !important;
+    }
+
+    #card-errors {
+        color: #fa755a;
+        text-align: left;
+        font-size: 13px;
+        line-height: 17px;
+        margin-top: 12px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
+<div class="container py-4">
+    <h1 class="mb-4">Checkout</h1>
+
     <div class="row">
         <!-- Order Summary -->
         <div class="col-md-4 order-md-2 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h4 class="mb-0">Order Summary</h4>
-                </div>
-                <div class="card-body">
-                    {% for item in cart_items %}
-                    <div class="d-flex justify-content-between mb-3">
-                        <div>
-                            <h6 class="my-0">{{ item.product.name }}</h6>
-                            <small class="text-muted">
-                                Quantity: {{ item.quantity }} × ${{ "%.2f"|format(item.product.price) }}
-                            </small>
-                        </div>
-                        <span class="text-muted">${{ "%.2f"|format(item.subtotal) }}</span>
+            <h4 class="d-flex justify-content-between align-items-center mb-3">
+                <span class="text-primary">Your Cart</span>
+                <span class="badge bg-primary rounded-pill">{{ cart_items|length }}</span>
+            </h4>
+            <ul class="list-group mb-3">
+                {% for item in cart_items %}
+                <li class="list-group-item d-flex justify-content-between lh-sm">
+                    <div>
+                        <h6 class="my-0">{{ item.product.name }}</h6>
+                        <small class="text-muted">Quantity: {{ item.quantity }}</small>
                     </div>
-                    {% endfor %}
+                    <span class="text-muted">${{ "%.2f"|format(item.subtotal) }}</span>
+                </li>
+                {% endfor %}
 
-                    <hr>
-
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Subtotal</span>
-                        <strong>${{ "%.2f"|format(subtotal) }}</strong>
+                {% if discount_percent > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light">
+                    <div class="text-success">
+                        <h6 class="my-0">Discount</h6>
+                        <small>{{ discount_percent }}% off</small>
                     </div>
+                    <span class="text-success">-${{ "%.2f"|format(discount_amount) }}</span>
+                </li>
+                {% endif %}
 
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Shipping</span>
-                        <strong>${{ "%.2f"|format(shipping_cost) }}</strong>
-                    </div>
-
-                    {% if discount_percent > 0 %}
-                    <div class="d-flex justify-content-between mb-2 text-success">
-                        <span>Discount ({{ discount_percent }}%)</span>
-                        <strong>-${{ "%.2f"|format(discount_amount) }}</strong>
-                    </div>
-                    {% endif %}
-
-                    <hr>
-
-                    <div class="d-flex justify-content-between">
-                        <span>Total</span>
-                        <strong>${{ "%.2f"|format(total) }}</strong>
-                    </div>
-
-                    {% if not discount_percent %}
-                    <div class="mt-3">
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="promoCode" placeholder="Promo code">
-                            <button class="btn btn-secondary" type="button" onclick="applyPromoCode()">Apply</button>
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Subtotal</span>
+                    <strong>${{ "%.2f"|format(subtotal) }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Shipping</span>
+                    <strong>${{ "%.2f"|format(shipping_cost) }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Total (USD)</span>
+                    <strong>${{ "%.2f"|format(total) }}</strong>
+                </li>
+            </ul>
         </div>
 
         <!-- Checkout Form -->
         <div class="col-md-8 order-md-1">
-            <form id="checkout-form" method="POST" action="{{ url_for('order.process_checkout') }}">
+            <form id="payment-form" method="POST" action="{{ url_for('order.process_checkout') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                
-                <!-- Shipping Address -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h4 class="mb-0">Shipping Address</h4>
-                    </div>
-                    <div class="card-body">
-                        {% if addresses %}
-                        <div class="mb-3">
-                            <select class="form-select" name="shipping_address" id="shipping_address" required>
-                                <option value="">Choose a saved address...</option>
-                                {% for address in addresses %}
-                                <option value="{{ address.id }}">
-                                    {{ address.name }} - {{ address.street }}, {{ address.city }}
-                                </option>
-                                {% endfor %}
-                                <option value="new">Add a new address...</option>
-                            </select>
+                <input type="hidden" id="payment_intent_id" name="payment_intent_id">
+
+                <h4 class="mb-3">Shipping Address</h4>
+                {% if addresses %}
+                <div class="mb-3">
+                    <select class="form-select" name="shipping_address" required>
+                        <option value="">Choose...</option>
+                        {% for address in addresses %}
+                        <option value="{{ address.id }}">
+                            {{ address.name }} - {{ address.street }}, {{ address.city }}, {{ address.state }} {{ address.postal_code }}
+                        </option>
+                        {% endfor %}
+                        <option value="new">Add new address...</option>
+                    </select>
+                </div>
+                {% endif %}
+
+                <!-- New Address Form (initially hidden) -->
+                <div id="new-address-form" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name">Full Name</label>
+                            <input type="text" class="form-control" id="name" name="name">
                         </div>
-                        {% endif %}
+                        <div class="col-md-6 mb-3">
+                            <label for="phone">Phone</label>
+                            <input type="tel" class="form-control" id="phone" name="phone">
+                        </div>
+                    </div>
 
-                        <div id="new-address-form" {% if addresses %}style="display: none;"{% endif %}>
-                            <div class="row">
-                                <div class="col-12 mb-3">
-                                    <label for="name" class="form-label">Full Name</label>
-                                    <input type="text" class="form-control" id="name" name="name" required>
-                                </div>
-                            </div>
+                    <div class="mb-3">
+                        <label for="street">Street Address</label>
+                        <input type="text" class="form-control" id="street" name="street">
+                    </div>
 
-                            <div class="mb-3">
-                                <label for="street" class="form-label">Street Address</label>
-                                <input type="text" class="form-control" id="street" name="street" required>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="city" class="form-label">City</label>
-                                    <input type="text" class="form-control" id="city" name="city" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="state" class="form-label">State</label>
-                                    <input type="text" class="form-control" id="state" name="state" required>
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="zip_code" class="form-label">ZIP Code</label>
-                                    <input type="text" class="form-control" id="zip_code" name="zip_code" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="country" class="form-label">Country</label>
-                                    <select class="form-select" id="country" name="country" required>
-                                        <option value="">Choose...</option>
-                                        <option value="US">United States</option>
-                                        <option value="CA">Canada</option>
-                                        <!-- Add more countries as needed -->
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="phone" class="form-label">Phone Number</label>
-                                <input type="tel" class="form-control" id="phone" name="phone" required>
-                            </div>
-
-                            {% if addresses %}
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="save_address" name="save_address">
-                                    <label class="form-check-label" for="save_address">Save this address for future use</label>
-                                </div>
-                            </div>
-                            {% endif %}
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="city">City</label>
+                            <input type="text" class="form-control" id="city" name="city">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="state">State</label>
+                            <input type="text" class="form-control" id="state" name="state">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="zip_code">Zip Code</label>
+                            <input type="text" class="form-control" id="zip_code" name="zip_code">
                         </div>
                     </div>
                 </div>
 
-                <!-- Payment Information -->
+                <hr class="mb-4">
+
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h4 class="mb-0">Payment Method</h4>
+                        <h5 class="mb-0">Payment Method</h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="cc_name" class="form-label">Name on Card</label>
-                                <input type="text" class="form-control" id="cc_name" name="cc_name" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="cc_number" class="form-label">Card Number</label>
-                                <input type="text" class="form-control" id="cc_number" name="cc_number" required>
-                            </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="payment_method" id="card_payment" value="card" checked>
+                            <label class="form-check-label" for="card_payment">
+                                <i class="fab fa-cc-stripe me-2"></i>Credit Card
+                            </label>
                         </div>
-
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label for="cc_expiration_month" class="form-label">Expiration Month</label>
-                                <select class="form-select" id="cc_expiration_month" name="cc_expiration_month" required>
-                                    <option value="">Month</option>
-                                    {% for month in range(1, 13) %}
-                                    <option value="{{ "%02d"|format(month) }}">{{ "%02d"|format(month) }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="cc_expiration_year" class="form-label">Expiration Year</label>
-                                <select class="form-select" id="cc_expiration_year" name="cc_expiration_year" required>
-                                    <option value="">Year</option>
-                                    {% for year in range(current_year, current_year + 10) %}
-                                    <option value="{{ year }}">{{ year }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="cc_cvv" class="form-label">CVV</label>
-                                <input type="text" class="form-control" id="cc_cvv" name="cc_cvv" required>
-                            </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" id="cod_payment" value="cod">
+                            <label class="form-check-label" for="cod_payment">
+                                <i class="fas fa-money-bill-wave me-2"></i>Cash on Delivery
+                            </label>
                         </div>
                     </div>
                 </div>
 
-                <button class="btn btn-primary btn-lg w-100" type="submit">Place Order</button>
+                <div id="card-element-container">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Card Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="card-element" class="mb-3">
+                                <!-- A Stripe Element will be inserted here. -->
+                            </div>
+                            <div id="card-errors" role="alert" class="text-danger"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-lg btn-block w-100" type="submit">Place Order</button>
             </form>
         </div>
-    </div>
-</div>
-
-<!-- Toast Container -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3">
-    <div id="promoToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
-            <strong class="me-auto">Promo Code</strong>
-            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body"></div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<!-- Stripe JS -->
+<script src="https://js.stripe.com/v3/"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const shippingAddressSelect = document.getElementById('shipping_address');
-    const newAddressForm = document.getElementById('new-address-form');
-
-    if (shippingAddressSelect) {
-        shippingAddressSelect.addEventListener('change', function() {
-            if (this.value === 'new') {
-                newAddressForm.style.display = 'block';
-            } else {
-                newAddressForm.style.display = 'none';
-            }
-        });
-    }
-});
-
-function applyPromoCode() {
-    const promoCode = document.getElementById('promoCode').value;
-    
-    fetch('/apply-promo', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
-        },
-        body: JSON.stringify({ code: promoCode })
-    })
-    .then(response => response.json())
-    .then(data => {
-        const toast = new bootstrap.Toast(document.getElementById('promoToast'));
-        const toastBody = document.querySelector('#promoToast .toast-body');
-        
-        if (data.success) {
-            toastBody.textContent = data.message;
-            // Reload page to update prices
-            window.location.reload();
+    // Show/hide new address form
+    document.querySelector('select[name="shipping_address"]').addEventListener('change', function() {
+        const newAddressForm = document.getElementById('new-address-form');
+        if (this.value === 'new') {
+            newAddressForm.style.display = 'block';
         } else {
-            toastBody.textContent = data.message;
+            newAddressForm.style.display = 'none';
         }
-        
-        toast.show();
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        const toast = new bootstrap.Toast(document.getElementById('promoToast'));
-        const toastBody = document.querySelector('#promoToast .toast-body');
-        toastBody.textContent = 'An error occurred while applying the promo code.';
-        toast.show();
     });
-}
 
-// Format credit card number
-document.getElementById('cc_number').addEventListener('input', function(e) {
-    let value = e.target.value.replace(/\D/g, '');
-    value = value.replace(/(.{4})/g, '$1 ').trim();
-    e.target.value = value;
-});
+    // Initialize Stripe
+    const stripe = Stripe('{{ config.STRIPE_PUBLIC_KEY }}');
+    const elements = stripe.elements();
 
-// Format CVV
-document.getElementById('cc_cvv').addEventListener('input', function(e) {
-    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
-});
+    // Create an instance of the card Element
+    const card = elements.create('card');
+    card.mount('#card-element');
 
-// Format phone number
-document.getElementById('phone').addEventListener('input', function(e) {
-    let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
-    e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
-});
+    // Handle payment method selection
+    const cardPaymentRadio = document.getElementById('card_payment');
+    const codPaymentRadio = document.getElementById('cod_payment');
+    const cardElementContainer = document.getElementById('card-element-container');
 
-document.addEventListener('DOMContentLoaded', function() {
-    const addressSelect = document.getElementById('shipping_address');
-    const newAddressForm = document.getElementById('new-address-form');
-    const requiredFields = newAddressForm.querySelectorAll('input[required], select[required]');
+    function toggleCardElement() {
+        if (cardPaymentRadio.checked) {
+            cardElementContainer.style.display = 'block';
+        } else {
+            cardElementContainer.style.display = 'none';
+        }
+    }
 
-    function toggleAddressForm() {
-        const showNewForm = addressSelect.value === 'new';
-        newAddressForm.style.display = showNewForm ? 'block' : 'none';
+    cardPaymentRadio.addEventListener('change', toggleCardElement);
+    codPaymentRadio.addEventListener('change', toggleCardElement);
+
+    // Handle form submission
+    const form = document.getElementById('payment-form');
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
         
-        // Toggle required attributes
-        requiredFields.forEach(field => {
-            field.required = showNewForm;
-        });
-    }
+        const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+        
+        if (paymentMethod === 'card') {
+            // Handle card payment
+            const { paymentIntent, error } = await stripe.confirmCardPayment('{{ client_secret }}', {
+                payment_method: {
+                    card: card,
+                    billing_details: {
+                        name: document.getElementById('name').value
+                    }
+                }
+            });
 
-    if (addressSelect) {
-        addressSelect.addEventListener('change', toggleAddressForm);
-        // Initial state
-        toggleAddressForm();
-    }
-});
+            if (error) {
+                const errorElement = document.getElementById('card-errors');
+                errorElement.textContent = error.message;
+            } else {
+                // Payment successful
+                document.getElementById('payment_intent_id').value = paymentIntent.id;
+                form.submit();
+            }
+        } else {
+            // Handle COD payment - just submit the form
+            form.submit();
+        }
+    });
 </script>
 {% endblock %}

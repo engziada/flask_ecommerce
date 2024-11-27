@@ -4,7 +4,7 @@ from app.models.product import Product
 from app.models.category import Category
 from app.models.user import User
 from app.models.order import Order
-from app.extensions import db
+from app.extensions import db, csrf
 from functools import wraps
 import os
 from werkzeug.utils import secure_filename
@@ -209,7 +209,9 @@ def order_detail(order_id):
 @bp.route('/orders/<int:order_id>/status', methods=['POST'])
 @login_required
 @admin_required
+@csrf.exempt
 def update_order_status(order_id):
+    """Update order status"""
     order = Order.query.get_or_404(order_id)
     
     if not order.can_update_status:
@@ -230,6 +232,25 @@ def update_order_status(order_id):
     flash(f'Order status updated to {status}.', 'success')
     return redirect(url_for('admin.order_detail', order_id=order.id))
 
+@bp.route('/orders/<int:order_id>/update_payment_status', methods=['POST'])
+@login_required
+@admin_required
+@csrf.exempt
+def update_payment_status(order_id):
+    """Update payment status for COD orders"""
+    order = Order.query.get_or_404(order_id)
+    
+    if order.payment_method != 'COD':
+        flash('This action is only available for Cash on Delivery orders.', 'error')
+        return redirect(url_for('admin.order_detail', order_id=order_id))
+    
+    order.payment_status = 'paid'
+    order.date_updated = datetime.utcnow()
+    db.session.commit()
+    
+    flash('Payment status updated successfully.', 'success')
+    return redirect(url_for('admin.order_detail', order_id=order_id))
+
 @bp.route('/users')
 @login_required
 @admin_required
@@ -242,6 +263,7 @@ def users():
 @bp.route('/user/<int:user_id>/toggle-admin', methods=['POST'])
 @login_required
 @admin_required
+@csrf.exempt
 def toggle_admin(user_id):
     user = User.query.get_or_404(user_id)
     

@@ -13,7 +13,9 @@
                     <th>Order ID</th>
                     <th>Customer</th>
                     <th>Date</th>
-                    <th>Status</th>
+                    <th>Order Status</th>
+                    <th>Payment Status</th>
+                    <th>Payment Method</th>
                     <th>Total</th>
                     <th>Actions</th>
                 </tr>
@@ -29,6 +31,23 @@
                             {{ order.status.upper() }}
                         </span>
                     </td>
+                    <td>
+                        <span class="badge bg-{{ order.payment_status_color }}">
+                            {{ order.payment_status.upper() }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if order.payment_method == 'card' %}
+                            <i class="fab fa-cc-stripe"></i> 
+                            {% if order.stripe_payment_id %}
+                                Card (**** {{ order.stripe_payment_id[-4:] }})
+                            {% else %}
+                                Card
+                            {% endif %}
+                        {% else %}
+                            <i class="fas fa-money-bill-wave"></i> COD
+                        {% endif %}
+                    </td>
                     <td>${{ "%.2f"|format(order.total) }}</td>
                     <td>
                         <a href="{{ url_for('admin.order_detail', order_id=order.id) }}" class="btn btn-sm btn-outline-primary">
@@ -38,7 +57,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center">No orders found.</td>
+                    <td colspan="8" class="text-center">No orders found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
