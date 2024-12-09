@@ -52,6 +52,12 @@ def create_app(config_class=Config):
     from app.address import bp as address_bp
     app.register_blueprint(address_bp, url_prefix='/address')
 
+    from app.reviews import bp as reviews_bp
+    app.register_blueprint(reviews_bp, url_prefix='/reviews')
+
+    from app.coupons import bp as coupons_bp
+    app.register_blueprint(coupons_bp, url_prefix='/coupons')
+
     # Register admin blueprint
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp)  # URL prefix is defined in the blueprint

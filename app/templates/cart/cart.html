@@ -58,6 +58,16 @@
                         <span class="cart-total">${{ "%.2f"|format(total) }}</span>
                     </div>
                     <hr>
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Apply Coupon</h5>
+                            <form id="coupon-form" class="d-flex gap-2">
+                                <input type="text" id="coupon-code" name="code" class="form-control" placeholder="Enter coupon code">
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                            <div id="coupon-message" class="mt-2"></div>
+                        </div>
+                    </div>
                     <div class="d-flex justify-content-between mb-3">
                         <span class="h5">Total:</span>
                         <span class="h5 cart-total">${{ "%.2f"|format(total) }}</span>
@@ -135,6 +145,57 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isNaN(newValue) || newValue < 1) newValue = 1;
             if (newValue > 99) newValue = 99;
             updateQuantity(input, newValue);
+        });
+    });
+    
+    document.getElementById('coupon-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const code = document.getElementById('coupon-code').value;
+        const cartTotal = parseFloat(document.querySelector('.cart-total').textContent.slice(1));
+        
+        fetch('/coupons/apply', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                code: code,
+                cart_total: cartTotal
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const messageDiv = document.getElementById('coupon-message');
+            
+            if (data.error) {
+                messageDiv.className = 'alert alert-danger mt-2';
+                messageDiv.textContent = data.error;
+            } else {
+                messageDiv.className = 'alert alert-success mt-2';
+                messageDiv.textContent = data.message;
+                
+                // Update cart total
+                document.querySelector('.cart-total').textContent = `$${data.new_total.toFixed(2)}`;
+                
+                // Add discount row
+                const discountRow = document.createElement('div');
+                discountRow.innerHTML = `
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>Discount:</span>
+                        <span class="text-end">-$${data.discount.toFixed(2)}</span>
+                    </div>
+                `;
+                
+                const totalRow = document.querySelector('.d-flex:last-child');
+                totalRow.parentNode.insertBefore(discountRow, totalRow);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const messageDiv = document.getElementById('coupon-message');
+            messageDiv.className = 'alert alert-danger mt-2';
+            messageDiv.textContent = 'An error occurred. Please try again.';
         });
     });
 });
