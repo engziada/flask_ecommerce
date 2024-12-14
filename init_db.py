@@ -19,9 +19,9 @@ def init_db():
         admin = User(
             username='admin',
             email='admin@example.com',
-            password=generate_password_hash('admin123'),
-            is_admin=True
+            password=generate_password_hash('admin123')
         )
+        admin.is_admin = True  # Set admin status after creation
         db.session.add(admin)
         
         # Create test user
