@@ -42,6 +42,9 @@ def init_db():
         for category in categories:
             db.session.add(category)
         
+        # Commit to get category IDs
+        db.session.commit()
+        
         # Create sample products
         products = []
         for category in categories:
@@ -53,7 +56,7 @@ def init_db():
                     description=f'This is a sample {category.name.lower()} item {i+1}',
                     price=price,
                     stock=stock,
-                    category=category
+                    category_id=category.id
                 )
                 products.append(product)
                 db.session.add(product)
