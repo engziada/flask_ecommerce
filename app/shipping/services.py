@@ -202,6 +202,97 @@ class BostaShippingService:
             current_app.logger.error(f"Error getting default location: {str(e)}")
             return False
     
+    def _get_city_id(self, city_name):
+        """Get city ID from city name"""
+        try:
+            if not self.token and not self._login():
+                raise Exception("Failed to authenticate with Bosta")
+
+            # Get cities list
+            response = requests.get(
+                f"{self.base_url}/cities",
+                headers=self.headers
+            )
+
+            if response.status_code != 200:
+                current_app.logger.error(f"Failed to get cities. Status: {response.status_code}, Response: {response.text}")
+                return None
+
+            data = response.json()
+            if not data.get('data') or not data['data'].get('list'):
+                current_app.logger.error("No cities found in response")
+                return None
+
+            # Find city by name
+            cities = data['data']['list']
+            if isinstance(cities, list):
+                for city in cities:
+                    if isinstance(city, dict) and city.get('name', '').lower() == city_name.lower():
+                        current_app.logger.info(f"Found city {city_name} with ID {city.get('_id')}")
+                        return city.get('_id')
+            else:
+                current_app.logger.error(f"Unexpected cities data format: {cities}")
+
+            current_app.logger.error(f"City not found: {city_name}")
+            return None
+
+        except Exception as e:
+            current_app.logger.error(f"Error getting city ID: {str(e)}")
+            current_app.logger.error(f"Full error details:", exc_info=True)
+            return None
+
+    def _get_zone_and_district(self, city_name):
+        """Get zoneId and districtId for a given city"""
+        try:
+            if not self.token and not self._login():
+                raise Exception("Failed to authenticate with Bosta")
+
+            # First get the city ID
+            city_id = self._get_city_id(city_name)
+            if not city_id:
+                raise Exception(f"Could not find city ID for {city_name}")
+
+            # Get districts for the city
+            response = requests.get(
+                f"{self.base_url}/cities/{city_id}/districts",
+                headers=self.headers
+            )
+
+            if response.status_code != 200:
+                current_app.logger.error(f"Failed to get districts. Status: {response.status_code}, Response: {response.text}")
+                return None, None
+
+            data = response.json()
+            if not data.get('data'):
+                current_app.logger.error(f"No districts found for city {city_name}")
+                return None, None
+
+            # Get the first available district that allows both pickup and dropoff
+            district = None
+            for d in data['data']:
+                if d.get('pickupAvailability', False) and d.get('dropOffAvailability', False):
+                    district = d
+                    break
+
+            if not district:
+                current_app.logger.error(f"No suitable district found for {city_name}")
+                return None, None
+
+            zone_id = district.get('zoneId')
+            district_id = district.get('districtId')
+
+            if not zone_id or not district_id:
+                current_app.logger.error(f"Could not find zone or district IDs for {city_name}")
+                return None, None
+
+            current_app.logger.info(f"Found zone {zone_id} and district {district_id} for {city_name}")
+            return zone_id, district_id
+
+        except Exception as e:
+            current_app.logger.error(f"Error getting zone and district: {str(e)}")
+            current_app.logger.error(f"Full error details:", exc_info=True)
+            return None, None
+
     def calculate_shipping_cost(self, order):
         """Calculate shipping cost using Bosta's rates"""
         try:
@@ -275,7 +366,7 @@ class BostaShippingService:
                         "size": "MEDIUM",
                         "packageDetails": {
                             "itemsCount": len(order.items),
-                            "description": f"Order {order.id}"
+                            "description": f"Order #{order.id} - {', '.join(item.ordered_product.name for item in order.items[:3])}"
                         }
                     },
                     "cod": float(order.total) if order.payment_method == 'cod' else 0,
@@ -342,55 +433,74 @@ class BostaShippingService:
                 current_app.logger.error(f"Invalid city name provided: {delivery_city}")
                 return None
             
-            # Prepare pickup address
-            try:
-                pickup_address = {
-                    'city': self.default_location['address'].get('city', {}).get('name', 'Cairo'),
-                    'district': self.default_location['address'].get('district', ''),
-                    'firstLine': self.default_location['address'].get('firstLine', ''),
-                    'buildingNumber': self.default_location['address'].get('buildingNumber', ''),
-                    'apartment': self.default_location['address'].get('apartment', ''),
-                    'floor': self.default_location['address'].get('floor', ''),
-                    'cityCode': get_city_code(self.default_location['address'].get('city', {}).get('name', 'Cairo')) or ''
-                }
-            except (KeyError, TypeError) as e:
-                current_app.logger.error(f"Error extracting pickup address: {str(e)}")
-                return None
+            # Get default location data
+            default_location = self.default_location['address']
+            pickup_city = default_location.get('city', {}).get('name', 'Cairo')
             
-            # Prepare delivery address
-            delivery = {
-                'city': normalized_city,
-                'district': address.district or '',
-                'firstLine': address.street or '',
-                'buildingNumber': address.building_number or '',
-                'apartment': address.apartment or '',
-                'floor': address.floor or '',
-                'cityCode': city_code
-            }
+            # Get zone and district IDs for both pickup and delivery addresses
+            pickup_zone_id, pickup_district_id = self._get_zone_and_district(pickup_city)
+            delivery_zone_id, delivery_district_id = self._get_zone_and_district(normalized_city)
+            
+            if not all([pickup_zone_id, pickup_district_id, delivery_zone_id, delivery_district_id]):
+                raise Exception("Could not get required zone and district IDs")
             
             # Create delivery payload
+            webhook_url = "https://www.google.com/"  # Temporary webhook URL for testing
+            
             payload = {
-                "type": 10 if order.shipping_method.code == 'express' else 20,
+                "type": 10,  # Delivery
                 "specs": {
                     "packageType": "Parcel",
                     "size": "MEDIUM",
                     "packageDetails": {
                         "itemsCount": len(order.items),
-                        "description": f"Order {order.id}"
+                        "description": f"Order #{order.id} - {', '.join(item.ordered_product.name for item in order.items[:3])}"
                     }
                 },
-                "notes": f"Order {order.id}",
+                "notes": f"Order #{order.id}",
                 "cod": float(order.total) if order.payment_method == 'cod' else 0,
-                "dropOffAddress": delivery,
-                "pickupAddress": pickup_address,
+                "dropOffAddress": {
+                    "city": normalized_city,
+                    "districtId": delivery_district_id,
+                    "zoneId": delivery_zone_id,
+                    "firstLine": address.street,
+                    "secondLine": address.district if address.district else '',
+                    "buildingNumber": address.building_number,
+                    "floor": address.floor,
+                    "apartment": address.apartment
+                },
+                "pickupAddress": {
+                    "city": pickup_city,
+                    "districtId": pickup_district_id,
+                    "zoneId": pickup_zone_id,
+                    "firstLine": default_location.get('firstLine', ''),
+                    "secondLine": default_location.get('secondLine', ''),
+                    "buildingNumber": default_location.get('buildingNumber', ''),
+                    "floor": default_location.get('floor', ''),
+                    "apartment": default_location.get('apartment', '')
+                },
+                "returnAddress": {
+                    "city": pickup_city,
+                    "districtId": pickup_district_id,
+                    "zoneId": pickup_zone_id,
+                    "firstLine": default_location.get('firstLine', ''),
+                    "secondLine": default_location.get('secondLine', ''),
+                    "buildingNumber": default_location.get('buildingNumber', ''),
+                    "floor": default_location.get('floor', ''),
+                    "apartment": default_location.get('apartment', '')
+                },
                 "businessReference": f"order_{order.id}",
+                "uniqueBusinessReference": f"order_{order.id}_{datetime.utcnow().timestamp()}",
                 "receiver": {
                     "firstName": address.name.split()[0],
                     "lastName": address.name.split()[-1] if len(address.name.split()) > 1 else "",
                     "phone": address.phone,
                     "email": order.user.email
-                }
+                },
+                "webhookUrl": webhook_url
             }
+            
+            current_app.logger.info(f"Creating Bosta delivery with payload: {payload}")
             
             # Create delivery
             response = requests.post(
@@ -399,24 +509,22 @@ class BostaShippingService:
                 json=payload
             )
             
-            if response.status_code in [200, 201]:
-                delivery_data = response.json()['data']
-                
-                # Update order with delivery information
-                order.delivery_order_id = delivery_data['_id']
-                order.delivery_tracking_number = delivery_data['trackingNumber']
-                order.delivery_status = delivery_data['state']['value']
-                order.delivery_status_code = str(delivery_data['state']['code'])
-                order.delivery_created_at = datetime.utcnow()
-                order.delivery_updated_at = datetime.utcnow()
-                
-                db.session.commit()
-                return delivery_data
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    current_app.logger.info(f"Successfully created Bosta delivery: {data}")
+                    return data.get('data')
+                else:
+                    error_msg = data.get('message', 'Unknown error from Bosta API')
+                    current_app.logger.error(f"Bosta API error: {error_msg}")
+                    raise Exception(error_msg)
             else:
-                raise Exception(f"Failed to create delivery: {response.text}")
+                error_msg = f"Failed to create Bosta delivery. Status: {response.status_code}, Response: {response.text}"
+                current_app.logger.error(error_msg)
+                raise Exception(error_msg)
                 
         except Exception as e:
-            current_app.logger.error(f"Error creating shipping order: {str(e)}")
+            current_app.logger.error(f"Error creating Bosta delivery: {str(e)}")
             raise
     
     def _ensure_token(self):
@@ -532,6 +640,36 @@ class BostaShippingService:
                 
         except Exception as e:
             current_app.logger.error(f"Error tracking shipment: {str(e)}")
+            raise
+
+    def cancel_shipping_order(self, delivery_id):
+        """Cancel a delivery order with Bosta"""
+        try:
+            if not self.token and not self._login():
+                raise Exception("Failed to authenticate with Bosta")
+
+            # Call Bosta's terminate delivery API
+            response = requests.delete(
+                f"{self.base_url}/deliveries/business/{delivery_id}/terminate",
+                headers=self.headers
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    current_app.logger.info(f"Successfully cancelled Bosta delivery: {delivery_id}")
+                    return True
+                else:
+                    error_msg = data.get('message', 'Unknown error from Bosta API')
+                    current_app.logger.error(f"Bosta API error while cancelling delivery: {error_msg}")
+                    raise Exception(error_msg)
+            else:
+                error_msg = f"Failed to cancel Bosta delivery. Status: {response.status_code}, Response: {response.text}"
+                current_app.logger.error(error_msg)
+                raise Exception(error_msg)
+
+        except Exception as e:
+            current_app.logger.error(f"Error cancelling Bosta delivery: {str(e)}")
             raise
 
 def calculate_shipping_cost(order, carrier_code=None):

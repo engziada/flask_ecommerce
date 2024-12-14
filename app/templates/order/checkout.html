@@ -95,15 +95,18 @@
                 <div class="mb-3">
                     {% if addresses %}
                         <div class="mb-3">
-                            <select class="form-select" id="shipping_address" name="shipping_address" required>
+                            <select class="form-select" id="address_id" name="address_id" required>
                                 <option value="">Choose shipping address...</option>
                                 {% for address in addresses %}
                                 <option value="{{ address.id }}">
-                                    {{ address.street }}, {{ address.city }}, {{ address.state }} {{ address.postal_code }}
+                                    {{ address.street }}, {{ address.city }}, {{ address.postal_code }}
                                 </option>
                                 {% endfor %}
                             </select>
                         </div>
+                        <!-- Hidden fields for carrier and method -->
+                        <input type="hidden" name="carrier_id" value="{{ carriers[0].id if carriers else '' }}">
+                        <input type="hidden" name="method_id" value="{{ carriers[0].shipping_methods[0].id if carriers and carriers[0].shipping_methods else '' }}">
                     {% else %}
                         <p>No shipping addresses found.</p>
                     {% endif %}
@@ -163,7 +166,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize variables
-        const addressSelect = document.getElementById('shipping_address');
+        const addressSelect = document.getElementById('address_id');
         const cardElementContainer = document.getElementById('card-element-container');
         const paymentMethodInputs = document.querySelectorAll('input[name="payment_method"]');
         const stripe = Stripe('{{ config.STRIPE_PUBLIC_KEY }}');

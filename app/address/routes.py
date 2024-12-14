@@ -34,14 +34,12 @@ def add_address():
                 name=form.name.data,
                 phone=form.phone.data,
                 street=form.street.data,
-                street2=form.street2.data,
                 building_number=form.building_number.data,
                 floor=form.floor.data,
                 apartment=form.apartment.data,
                 city=form.city.data,
-                state=form.state.data,
-                zip_code=form.zip_code.data,
-                country=form.country.data,
+                district=form.district.data,
+                postal_code=form.postal_code.data,
                 is_default=form.is_default.data
             )
             
@@ -59,39 +57,30 @@ def add_address():
             flash(f'Error adding address: {str(e)}', 'danger')
     
     return render_template('address/address_form.html', form=form)
-    
 
 @bp.route('/edit/<int:address_id>', methods=['GET', 'POST'])
 @login_required
 def edit_address(address_id):
     """Edit address"""
     address = Address.query.filter_by(id=address_id, user_id=current_user.id).first_or_404()
+    form = AddressForm(obj=address)
     
-    if request.method == 'POST':
+    if form.validate_on_submit():
         try:
-            address.name = request.form.get('name')
-            address.phone = request.form.get('phone')
-            address.street = request.form.get('street')  
-            address.city = request.form.get('city')
-            address.state = request.form.get('state')
-            address.zip_code = request.form.get('zip_code')  
-            address.country = request.form.get('country', 'US')
-            
-            new_is_default = bool(request.form.get('is_default'))
-            if new_is_default and not address.is_default:
-                # Set all other addresses as non-default
+            # If setting as default, update other addresses
+            if form.is_default.data and not address.is_default:
                 Address.query.filter_by(user_id=current_user.id).update({'is_default': False})
-            address.is_default = new_is_default
             
+            form.populate_obj(address)
             db.session.commit()
             flash('Address updated successfully!', 'success')
             return redirect(url_for('address.addresses'))
             
         except Exception as e:
             db.session.rollback()
-            flash('Error updating address. Please try again.', 'danger')
+            flash(f'Error updating address: {str(e)}', 'danger')
     
-    return render_template('address/address_form.html', address=address)
+    return render_template('address/address_form.html', form=form, address=address)
 
 @bp.route('/delete/<int:address_id>', methods=['POST'])
 @login_required
@@ -100,12 +89,20 @@ def delete_address(address_id):
     address = Address.query.filter_by(id=address_id, user_id=current_user.id).first_or_404()
     
     try:
+        was_default = address.is_default
         db.session.delete(address)
+        
+        # If the deleted address was default, set the first remaining address as default
+        if was_default:
+            remaining_address = Address.query.filter_by(user_id=current_user.id).first()
+            if remaining_address:
+                remaining_address.is_default = True
+        
         db.session.commit()
-        flash('Address deleted successfully.', 'success')
-    except:
+        flash('Address deleted successfully!', 'success')
+    except Exception as e:
         db.session.rollback()
-        flash('Error deleting address.', 'danger')
+        flash(f'Error deleting address: {str(e)}', 'danger')
     
     return redirect(url_for('address.addresses'))
 
@@ -113,15 +110,18 @@ def delete_address(address_id):
 @login_required
 def set_default_address(address_id):
     """Set address as default"""
-    address = Address.query.filter_by(id=address_id, user_id=current_user.id).first_or_404()
-    
     try:
         # Set all addresses as non-default
         Address.query.filter_by(user_id=current_user.id).update({'is_default': False})
-        # Set selected address as default
+        
+        # Set the selected address as default
+        address = Address.query.filter_by(id=address_id, user_id=current_user.id).first_or_404()
         address.is_default = True
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Default address updated.'})
-    except:
+        
+        flash('Default address updated successfully!', 'success')
+    except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': 'Error updating default address.'})
+        flash(f'Error setting default address: {str(e)}', 'danger')
+    
+    return redirect(url_for('address.addresses'))

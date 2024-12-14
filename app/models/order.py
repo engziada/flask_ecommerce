@@ -27,6 +27,7 @@ class Order(db.Model):
     date_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     stripe_payment_id = db.Column(db.String(100), nullable=True)  # Stripe PaymentIntent ID
     refund_id = db.Column(db.String(100), nullable=True)  # Stripe Refund ID
+    delivery_id = db.Column(db.String(100), nullable=True)  # Bosta delivery ID
     
     # Shipping fields
     delivery_tracking_number = db.Column(db.String(50), nullable=True)  # Bosta tracking number

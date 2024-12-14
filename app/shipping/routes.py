@@ -1,6 +1,6 @@
 from flask import jsonify, request
 from app.shipping import bp
-from app.shipping.services import calculate_shipping_cost, track_shipment, BostaCityMapping
+from app.shipping.services import calculate_shipping_cost, track_shipment, BostaCityMapping, BostaShippingService
 from app.models.shipping import ShippingCarrier
 
 @bp.route('/carriers', methods=['GET'])
@@ -59,3 +59,31 @@ def track_delivery(tracking_number):
         return jsonify(tracking_info)
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+@bp.route('/webhook', methods=['POST'])
+def shipping_webhook():
+    """Handle shipping status updates from Bosta"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data received'}), 400
+
+        bp.logger.info(f"Received shipping webhook: {data}")
+        
+        # Extract delivery information
+        delivery_id = data.get('_id')
+        status = data.get('status')
+        tracking_number = data.get('trackingNumber')
+        business_reference = data.get('businessReference')
+        
+        if not all([delivery_id, status, tracking_number, business_reference]):
+            return jsonify({'error': 'Missing required fields'}), 400
+            
+        # Update order shipping status
+        # TODO: Implement order status update based on Bosta delivery status
+        
+        return jsonify({'success': True}), 200
+        
+    except Exception as e:
+        bp.logger.error(f"Error processing shipping webhook: {str(e)}")
+        return jsonify({'error': str(e)}), 500

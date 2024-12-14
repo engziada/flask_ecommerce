@@ -50,11 +50,11 @@ class Address(db.Model):
             'floor': self.floor,
             'apartment': self.apartment,
             'city': self.city,
-            'city_code': self.city_code,
             'district': self.district,
             'postal_code': self.postal_code,
             'is_default': self.is_default,
-            'formatted': self.formatted_address
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
     def __repr__(self):

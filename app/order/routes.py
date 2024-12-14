@@ -34,8 +34,15 @@ def checkout():
     # Get user addresses with one query
     addresses = Address.query.filter_by(user_id=current_user.id).all()
     
-    # Get active shipping carriers
-    carriers = ShippingCarrier.query.filter_by(is_active=True).all()
+    # Get active shipping carriers with their methods
+    carriers = ShippingCarrier.query.filter_by(is_active=True).options(
+        db.joinedload(ShippingCarrier.shipping_methods)
+    ).all()
+    
+    # Make sure we have at least one carrier with a method
+    if not carriers or not any(carrier.shipping_methods for carrier in carriers):
+        flash('No shipping methods available.', 'error')
+        return redirect(url_for('cart.cart'))
     
     # Apply any discounts from session
     discount_percent = session.get('discount', 0)
@@ -148,8 +155,16 @@ def process_checkout():
         carrier_id = request.form.get('carrier_id')
         method_id = request.form.get('method_id')
         
+        # Log the form data for debugging
+        current_app.logger.info(f"Checkout form data: address_id={address_id}, payment_method={payment_method}, carrier_id={carrier_id}, method_id={method_id}")
+        
         if not all([address_id, payment_method, carrier_id, method_id]):
-            flash('Missing required checkout information.', 'error')
+            missing_fields = []
+            if not address_id: missing_fields.append('shipping address')
+            if not payment_method: missing_fields.append('payment method')
+            if not carrier_id: missing_fields.append('shipping carrier')
+            if not method_id: missing_fields.append('shipping method')
+            flash(f'Missing required checkout information: {", ".join(missing_fields)}.', 'error')
             return redirect(url_for('order.checkout'))
         
         # Get cart items
@@ -202,17 +217,11 @@ def process_checkout():
             order.items.append(order_item)
         
         db.session.add(order)
-        
-        # Clear cart
-        for item in cart_items:
-            db.session.delete(item)
-        
-        # Clear discount from session
-        session.pop('discount', None)
+        db.session.flush()  # This assigns the order.id without committing
         
         # Create shipping quote
         quote = ShippingQuote(
-            order_id=order.id,
+            order_id=order.id,  # Now order.id is available
             carrier_id=carrier_id,
             method_id=method_id,
             cost=shipping_cost,
@@ -226,6 +235,30 @@ def process_checkout():
             valid_until=datetime.utcnow() + timedelta(hours=24)
         )
         db.session.add(quote)
+        
+        # Create Bosta delivery order
+        try:
+            bosta_service = BostaShippingService()
+            delivery_order = bosta_service.create_shipping_order(order)
+            if delivery_order:
+                # Update order with tracking info
+                order.tracking_number = delivery_order.get('trackingNumber')
+                order.carrier_tracking_url = delivery_order.get('trackingURL')
+                db.session.commit()
+                current_app.logger.info(f"Successfully created delivery order for order {order.id}")
+            else:
+                current_app.logger.warning(f"No delivery order data returned for order {order.id}")
+        except Exception as e:
+            current_app.logger.error(f"Error creating Bosta delivery order: {str(e)}")
+            # Don't fail the entire order if shipping creation fails
+            # Just log the error and continue
+        
+        # Clear cart
+        for item in cart_items:
+            db.session.delete(item)
+        
+        # Clear discount from session
+        session.pop('discount', None)
         
         db.session.commit()
         
@@ -321,21 +354,49 @@ def apply_promo():
             'message': 'Invalid promo code'
         })
 
-@bp.route('/<int:order_id>/cancel', methods=['POST'])
+@bp.route('/cancel/<int:order_id>', methods=['POST'])
 @login_required
 def cancel_order(order_id):
-    order = Order.query.get_or_404(order_id)
-    if order.user_id != current_user.id:
-        flash('You cannot cancel this order.', 'error')
-        return redirect(url_for('order.orders'))
-    
-    if order.status not in ['pending', 'processing']:
-        flash('This order cannot be cancelled.', 'error')
-        return redirect(url_for('order.order_detail', order_id=order.id))
-    
-    order.cancel_order('user')
-    flash('Order has been cancelled.', 'success')
-    return redirect(url_for('order.order_detail', order_id=order.id))
+    """Cancel an order"""
+    try:
+        order = Order.query.get_or_404(order_id)
+        
+        # Check if order belongs to current user
+        if order.user_id != current_user.id:
+            flash('You do not have permission to cancel this order.', 'error')
+            return redirect(url_for('order.orders'))
+            
+        # Check if order can be cancelled
+        if order.status not in ['pending', 'processing']:
+            flash('This order cannot be cancelled.', 'error')
+            return redirect(url_for('order.orders'))
+            
+        # Cancel Bosta delivery if exists
+        if order.delivery_id:
+            try:
+                bosta_service = BostaShippingService()
+                bosta_service.cancel_shipping_order(order.delivery_id)
+                current_app.logger.info(f"Cancelled Bosta delivery for order {order_id}")
+            except Exception as e:
+                current_app.logger.error(f"Failed to cancel Bosta delivery for order {order_id}: {str(e)}")
+                # Continue with order cancellation even if delivery cancellation fails
+        
+        # Update order status
+        order.status = 'cancelled'
+        order.date_updated = datetime.utcnow()
+        
+        # Save changes
+        db.session.commit()
+        
+        flash('Order has been cancelled successfully.', 'success')
+        current_app.logger.info(f"Order {order_id} cancelled successfully")
+        
+    except Exception as e:
+        db.session.rollback()
+        flash('Failed to cancel order.', 'error')
+        current_app.logger.error(f"Error cancelling order {order_id}: {str(e)}")
+        
+    return redirect(url_for('order.orders'))
 
 def validate_credit_card(cc_number, cc_name, cc_exp_month, cc_exp_year, cc_cvv):
     """Validate credit card information"""

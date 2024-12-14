@@ -16,6 +16,9 @@ class ShippingCarrier(db.Model):
     default_location_id = db.Column(db.String(100), nullable=True)  # Store Bosta/EgyPost location ID
     default_location_data = db.Column(db.JSON, nullable=True)  # Store full location data
     
+    # Relationships
+    shipping_methods = db.relationship('ShippingMethod', backref='carrier', lazy='joined')
+    
     def __repr__(self):
         return f'<ShippingCarrier {self.name}>'
 
@@ -31,9 +34,6 @@ class ShippingMethod(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     date_created = db.Column(db.DateTime, default=datetime.utcnow)
     date_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationship
-    carrier = db.relationship('ShippingCarrier', backref='methods')
     
     def __repr__(self):
         return f'<ShippingMethod {self.name}>'
