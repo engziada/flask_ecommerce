@@ -26,3 +26,4 @@ msgspec==0.18.6  # For message serialization
 cachelib==0.13.0  # For caching
 requests==2.31.0  # For HTTP requests
 zeep>=4.2.1
+gunicorn==21.2.0  # For production server deployment
