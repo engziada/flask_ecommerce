@@ -5,7 +5,6 @@ from app.models.category import Category
 from app.models.address import Address
 from app.models.cart import Cart
 from app.models.review import Review
-from werkzeug.security import generate_password_hash
 import random
 import uuid
 
@@ -23,7 +22,7 @@ def init_db():
         admin = User(
             username='admin',
             email='admin@example.com',
-            password=generate_password_hash('admin123')
+            password='admin123'  # User model will hash this
         )
         admin.is_admin = True  # Set admin status after creation
         db.session.add(admin)
@@ -32,7 +31,7 @@ def init_db():
         test_user = User(
             username='testuser',
             email='test@example.com',
-            password=generate_password_hash('test123')
+            password='test123'  # User model will hash this
         )
         db.session.add(test_user)
         
