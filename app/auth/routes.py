@@ -200,8 +200,10 @@ def add_address():
     street = request.form.get('street')
     city = request.form.get('city')
     state = request.form.get('state')
-    postal_code = request.form.get('postal_code')
+    zip_code = request.form.get('zip_code')
     country = request.form.get('country')
+    name = request.form.get('name')
+    phone = request.form.get('phone')
     is_default = request.form.get('is_default', False)
     
     if is_default:
@@ -210,10 +212,12 @@ def add_address():
     
     address = Address(
         user_id=current_user.id,
+        name=name,
+        phone=phone,
         street=street,
         city=city,
         state=state,
-        postal_code=postal_code,
+        zip_code=zip_code,
         country=country,
         is_default=is_default
     )

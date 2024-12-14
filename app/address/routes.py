@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from app.models.address import Address
 from app.extensions import db
 from app.address import bp
+from app.address.forms import AddressForm
 
 @bp.route('/')
 @login_required
@@ -14,31 +15,40 @@ def addresses():
 @bp.route('/add', methods=['GET', 'POST'])
 @login_required
 def add_address():
-    """Add new address"""
-    if request.method == 'POST':
+    form = AddressForm()
+    if form.validate_on_submit():
         try:
+            # Start a transaction
+            db.session.begin_nested()
+            
+            # If this is the first address or set as default, update other addresses
+            if form.is_default.data:
+                Address.query.filter_by(user_id=current_user.id).update({'is_default': False})
+            
+            # If this is the user's first address, make it default regardless
+            if not Address.query.filter_by(user_id=current_user.id).first():
+                form.is_default.data = True
+            
             address = Address(
                 user_id=current_user.id,
-                name=request.form.get('name'),
-                phone=request.form.get('phone'),
-                address_line1=request.form.get('address_line1'),
-                address_line2=request.form.get('address_line2'),
-                city=request.form.get('city'),
-                state=request.form.get('state'),
-                postal_code=request.form.get('postal_code'),
-                country=request.form.get('country', 'US'),
-                is_default=bool(request.form.get('is_default'))
+                name=form.name.data,
+                phone=form.phone.data,
+                street=form.street.data,
+                street2=form.street2.data,
+                building_number=form.building_number.data,
+                floor=form.floor.data,
+                apartment=form.apartment.data,
+                city=form.city.data,
+                state=form.state.data,
+                zip_code=form.zip_code.data,
+                country=form.country.data,
+                is_default=form.is_default.data
             )
-            
-            if address.is_default:
-                # Set all other addresses as non-default
-                Address.query.filter_by(user_id=current_user.id).update({'is_default': False})
             
             db.session.add(address)
             db.session.commit()
             flash('Address added successfully!', 'success')
             
-            # If this is part of checkout process, redirect back
             next_page = request.args.get('next')
             if next_page:
                 return redirect(next_page)
@@ -46,9 +56,10 @@ def add_address():
             
         except Exception as e:
             db.session.rollback()
-            flash('Error adding address. Please try again.', 'danger')
+            flash(f'Error adding address: {str(e)}', 'danger')
     
-    return render_template('address/address_form.html')
+    return render_template('address/address_form.html', form=form)
+    
 
 @bp.route('/edit/<int:address_id>', methods=['GET', 'POST'])
 @login_required
@@ -60,11 +71,10 @@ def edit_address(address_id):
         try:
             address.name = request.form.get('name')
             address.phone = request.form.get('phone')
-            address.address_line1 = request.form.get('address_line1')
-            address.address_line2 = request.form.get('address_line2')
+            address.street = request.form.get('street')  
             address.city = request.form.get('city')
             address.state = request.form.get('state')
-            address.postal_code = request.form.get('postal_code')
+            address.zip_code = request.form.get('zip_code')  
             address.country = request.form.get('country', 'US')
             
             new_is_default = bool(request.form.get('is_default'))

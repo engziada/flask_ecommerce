@@ -36,7 +36,7 @@ instance/
 *.db
 
 # Environment Variables
-.env
+# .env
 
 # Logs
 *.log

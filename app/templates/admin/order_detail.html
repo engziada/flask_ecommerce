@@ -107,7 +107,7 @@
                             <span class="badge bg-{{ order.payment_status_color }} me-2">{{ order.payment_status.upper() }}</span>
                             {% if order.payment_method == 'COD' and order.payment_status == 'pending' %}
                                 <form action="{{ url_for('admin.update_payment_status', order_id=order.id) }}" method="POST" class="d-inline">
-                                    {{ csrf_token() }}
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-success btn-sm">
                                         <i class="fas fa-check"></i> Mark as Paid
                                     </button>
@@ -118,7 +118,7 @@
 
                     {% if order.can_update_status %}
                     <form method="POST" action="{{ url_for('admin.update_order_status', order_id=order.id) }}">
-                        {{ csrf_token() }}
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="mb-3">
                             <label for="status" class="form-label">Update Status</label>
                             <select class="form-select" id="status" name="status">

@@ -3,9 +3,11 @@ from flask_login import login_required, current_user
 from app.models.order import Order, OrderItem
 from app.models.cart import Cart
 from app.models.address import Address
+from app.models.shipping import ShippingCarrier, ShippingMethod, ShippingQuote
+from app.shipping.services import BostaShippingService, calculate_shipping_cost
 from app.extensions import db
 from app.order import bp
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.utils.stripe_utils import create_payment_intent, confirm_payment_intent
 import stripe
 
@@ -20,33 +22,320 @@ def orders():
 @login_required
 def checkout():
     """Checkout page"""
-    cart_items = Cart.query.filter_by(user_id=current_user.id).all()
+    # Use eager loading to load product relationships
+    cart_items = Cart.query.filter_by(user_id=current_user.id).join(Cart.product).options(db.contains_eager(Cart.product)).all()
     if not cart_items:
         flash('Your cart is empty.', 'warning')
         return redirect(url_for('cart.cart'))
     
     # Calculate cart totals
-    subtotal = sum(item.subtotal for item in cart_items)  # Using the subtotal property
-    shipping_cost = 10.00  # Fixed shipping cost, you can modify this based on your needs
+    subtotal = sum(item.product.price * item.quantity for item in cart_items)
+    
+    # Get user addresses with one query
+    addresses = Address.query.filter_by(user_id=current_user.id).all()
+    
+    # Get active shipping carriers
+    carriers = ShippingCarrier.query.filter_by(is_active=True).all()
     
     # Apply any discounts from session
     discount_percent = session.get('discount', 0)
     discount_amount = (subtotal * discount_percent / 100) if discount_percent > 0 else 0
     
+    # Default shipping cost (will be updated when user selects shipping method)
+    shipping_cost = 0.0
+    
     # Calculate final total
     total = subtotal + shipping_cost - discount_amount
-    
-    # Get user addresses
-    addresses = Address.query.filter_by(user_id=current_user.id).all()
     
     return render_template('order/checkout.html',
                          cart_items=cart_items,
                          addresses=addresses,
+                         carriers=carriers,
                          subtotal=subtotal,
                          shipping_cost=shipping_cost,
                          discount_percent=discount_percent,
                          discount_amount=discount_amount,
                          total=total)
+
+@bp.route('/calculate-shipping', methods=['POST'])
+@login_required
+def calculate_shipping():
+    """Calculate shipping cost based on selected address, carrier, and payment method"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON data'}), 400
+            
+        address_id = data.get('address_id')
+        carrier_code = data.get('carrier_code')
+        payment_method = data.get('payment_method', 'card')
+        
+        if not address_id:
+            return jsonify({'error': 'Missing address ID'}), 400
+            
+        if not carrier_code:
+            return jsonify({'error': 'Missing carrier code'}), 400
+            
+        # Get address and cart items
+        address = Address.query.get_or_404(address_id)
+        cart_items = Cart.query.filter_by(user_id=current_user.id).join(Cart.product).options(db.contains_eager(Cart.product)).all()
+        
+        if not cart_items:
+            return jsonify({'error': 'Cart is empty'}), 400
+        
+        # Calculate subtotal
+        subtotal = sum(item.product.price * item.quantity for item in cart_items)
+        
+        # Initialize Bosta shipping service
+        bosta_service = BostaShippingService()
+        
+        # Get the default pickup location
+        bosta_service._ensure_token()
+        bosta_service._get_default_location()
+        
+        if not bosta_service.default_location:
+            return jsonify({'error': 'Could not get default pickup location'}), 500
+            
+        # Set COD amount based on payment method
+        cod_amount = subtotal if payment_method == 'cod' else 0
+        
+        # Get pickup and dropoff cities
+        pickup_city = bosta_service.default_location['address']['city']['name']
+        dropoff_city = address.city
+        
+        # Estimate shipping cost
+        try:
+            shipping_cost = bosta_service.estimate_shipping_cost(
+                pickup_city=pickup_city,
+                dropoff_city=dropoff_city,
+                cod_amount=cod_amount
+            )
+            
+            if shipping_cost is None:
+                return jsonify({'error': 'Could not calculate shipping cost'}), 400
+
+            # Apply any discounts from session
+            discount_percent = session.get('discount', 0)
+            discount_amount = (subtotal * discount_percent / 100) if discount_percent > 0 else 0
+            
+            # Calculate total
+            total = subtotal + shipping_cost - discount_amount
+            
+            return jsonify({
+                'success': True,
+                'shipping_cost': shipping_cost,
+                'subtotal': subtotal,
+                'discount_amount': discount_amount,
+                'total': total
+            })
+            
+        except Exception as e:
+            current_app.logger.error(f"Error estimating shipping cost: {str(e)}")
+            return jsonify({'error': 'Could not estimate shipping cost'}), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Error in calculate_shipping: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/process', methods=['POST'])
+@login_required
+def process_checkout():
+    """Process the checkout"""
+    try:
+        # Get form data
+        address_id = request.form.get('address_id')
+        payment_method = request.form.get('payment_method')
+        carrier_id = request.form.get('carrier_id')
+        method_id = request.form.get('method_id')
+        
+        if not all([address_id, payment_method, carrier_id, method_id]):
+            flash('Missing required checkout information.', 'error')
+            return redirect(url_for('order.checkout'))
+        
+        # Get cart items
+        cart_items = Cart.query.filter_by(user_id=current_user.id).all()
+        if not cart_items:
+            flash('Your cart is empty.', 'error')
+            return redirect(url_for('cart.cart'))
+        
+        # Calculate totals
+        subtotal = sum(item.product.price * item.quantity for item in cart_items)
+        
+        # Get shipping carrier and method
+        carrier = ShippingCarrier.query.get_or_404(carrier_id)
+        method = ShippingMethod.query.get_or_404(method_id)
+        
+        # Calculate shipping cost
+        shipping_cost = carrier.base_cost
+        if method.code == 'express':
+            shipping_cost *= 1.5 if carrier.code == 'bosta' else 1.3
+        
+        # Apply any discounts from session
+        discount_percent = session.get('discount', 0)
+        discount_amount = (subtotal * discount_percent / 100) if discount_percent > 0 else 0
+        
+        # Calculate final total
+        total = subtotal + shipping_cost - discount_amount
+        
+        # Create the order
+        order = Order(
+            user_id=current_user.id,
+            shipping_address_id=address_id,
+            shipping_carrier_id=carrier_id,
+            shipping_method_id=method_id,
+            payment_method=payment_method,
+            status='pending',
+            payment_status='pending',
+            subtotal=subtotal,
+            shipping_cost=shipping_cost,
+            discount=discount_amount,
+            total=total
+        )
+        
+        # Add order items
+        for cart_item in cart_items:
+            order_item = OrderItem(
+                product_id=cart_item.product_id,
+                quantity=cart_item.quantity,
+                price=cart_item.product.price
+            )
+            order.items.append(order_item)
+        
+        db.session.add(order)
+        
+        # Clear cart
+        for item in cart_items:
+            db.session.delete(item)
+        
+        # Clear discount from session
+        session.pop('discount', None)
+        
+        # Create shipping quote
+        quote = ShippingQuote(
+            order_id=order.id,
+            carrier_id=carrier_id,
+            method_id=method_id,
+            cost=shipping_cost,
+            currency='EGP',
+            quote_data={
+                'base_cost': carrier.base_cost,
+                'method': method.code,
+                'estimated_days': method.estimated_days
+            },
+            is_selected=True,
+            valid_until=datetime.utcnow() + timedelta(hours=24)
+        )
+        db.session.add(quote)
+        
+        db.session.commit()
+        
+        if payment_method == 'card':
+            # Create Stripe payment intent
+            payment_intent = create_payment_intent(order)
+            order.stripe_payment_id = payment_intent.id
+            db.session.commit()
+            
+            return render_template('order/payment.html', 
+                                client_secret=payment_intent.client_secret,
+                                order=order)
+        else:
+            # For cash on delivery
+            flash('Order placed successfully!', 'success')
+            return redirect(url_for('order.order_detail', order_id=order.id))
+            
+    except Exception as e:
+        current_app.logger.error(f"Checkout error: {str(e)}")
+        flash('An error occurred during checkout. Please try again.', 'error')
+        return redirect(url_for('order.checkout'))
+
+@bp.route('/create-payment-intent', methods=['POST'])
+@login_required
+def create_payment():
+    """Create a payment intent for Stripe"""
+    try:
+        cart_items = Cart.query.filter_by(user_id=current_user.id).join(Cart.product).options(db.contains_eager(Cart.product)).all()
+        if not cart_items:
+            return jsonify({'error': 'Cart is empty'}), 400
+
+        # Calculate totals
+        subtotal = sum(item.product.price * item.quantity for item in cart_items)
+        shipping_cost = 10.0  # Fixed shipping cost
+        discount_percent = session.get('discount', 0)
+        discount_amount = (subtotal * discount_percent / 100)
+        total = subtotal + shipping_cost - discount_amount
+
+        # Create a PaymentIntent with the order amount and currency
+        intent = create_payment_intent(
+            amount=total,
+            metadata={
+                'user_id': current_user.id,
+                'cart_items': ','.join(str(item.id) for item in cart_items)
+            }
+        )
+
+        return jsonify({
+            'clientSecret': intent.client_secret
+        })
+
+    except stripe.error.StripeError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error creating payment intent: {str(e)}")
+        return jsonify({'error': 'An error occurred processing your payment'}), 500
+
+@bp.route('/<int:order_id>')
+@login_required
+def order_detail(order_id):
+    """Display order details"""
+    order = Order.query.filter_by(id=order_id, user_id=current_user.id).first_or_404()
+    return render_template('order/order_detail.html', order=order)
+
+@bp.route('/apply-promo', methods=['POST'])
+@login_required
+def apply_promo():
+    """Apply promotional code"""
+    promo_code = request.form.get('promo_code', '').upper()
+    cart_items = Cart.query.filter_by(user_id=current_user.id).join(Cart.product).options(db.contains_eager(Cart.product)).all()
+    total = sum(item.product.price * item.quantity for item in cart_items)
+    
+    # Simple promo code logic (should be replaced with proper promo code system)
+    valid_codes = {
+        'WELCOME10': 10,
+        'SAVE20': 20,
+        'SPECIAL50': 50
+    }
+    
+    if promo_code in valid_codes:
+        discount = valid_codes[promo_code]
+        session['discount'] = discount
+        final_total = total - (total * discount / 100)
+        return jsonify({
+            'success': True,
+            'message': f'Promo code applied! {discount}% discount',
+            'discount': discount,
+            'final_total': final_total
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': 'Invalid promo code'
+        })
+
+@bp.route('/<int:order_id>/cancel', methods=['POST'])
+@login_required
+def cancel_order(order_id):
+    order = Order.query.get_or_404(order_id)
+    if order.user_id != current_user.id:
+        flash('You cannot cancel this order.', 'error')
+        return redirect(url_for('order.orders'))
+    
+    if order.status not in ['pending', 'processing']:
+        flash('This order cannot be cancelled.', 'error')
+        return redirect(url_for('order.order_detail', order_id=order.id))
+    
+    order.cancel_order('user')
+    flash('Order has been cancelled.', 'success')
+    return redirect(url_for('order.order_detail', order_id=order.id))
 
 def validate_credit_card(cc_number, cc_name, cc_exp_month, cc_exp_year, cc_cvv):
     """Validate credit card information"""
@@ -123,163 +412,3 @@ def validate_credit_card(cc_number, cc_name, cc_exp_month, cc_exp_year, cc_cvv):
             errors.append('Invalid CVV length')
     
     return errors
-
-@bp.route('/create-payment-intent', methods=['POST'])
-@login_required
-def create_payment():
-    """Create a payment intent for Stripe"""
-    try:
-        cart_items = Cart.query.filter_by(user_id=current_user.id).all()
-        if not cart_items:
-            return jsonify({'error': 'Cart is empty'}), 400
-
-        # Calculate totals
-        subtotal = sum(item.product.price * item.quantity for item in cart_items)
-        shipping_cost = 10.0  # Fixed shipping cost
-        discount_percent = session.get('discount', 0)
-        discount_amount = (subtotal * discount_percent / 100)
-        total = subtotal + shipping_cost - discount_amount
-
-        # Create a PaymentIntent with the order amount and currency
-        intent = create_payment_intent(
-            amount=total,
-            metadata={
-                'user_id': current_user.id,
-                'cart_items': ','.join(str(item.id) for item in cart_items)
-            }
-        )
-
-        return jsonify({
-            'clientSecret': intent.client_secret
-        })
-
-    except stripe.error.StripeError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        current_app.logger.error(f"Error creating payment intent: {str(e)}")
-        return jsonify({'error': 'An error occurred processing your payment'}), 500
-
-@bp.route('/process', methods=['POST'])
-@login_required
-def process_checkout():
-    cart_items = Cart.query.filter_by(user_id=current_user.id).all()
-    if not cart_items:
-        flash('Your cart is empty.', 'error')
-        return redirect(url_for('cart.cart'))
-
-    payment_method = request.form.get('payment_method', 'card')
-    shipping_address_id = request.form.get('shipping_address')
-    if not shipping_address_id:
-        flash('Please select a shipping address.', 'error')
-        return redirect(url_for('order.checkout'))
-
-    try:
-        # Calculate totals
-        subtotal = sum(item.product.price * item.quantity for item in cart_items)
-        shipping_cost = 10.0  # Fixed shipping cost
-        total = subtotal + shipping_cost
-
-        # Create order
-        order = Order(
-            user_id=current_user.id,
-            shipping_address_id=shipping_address_id,
-            subtotal=subtotal,
-            total=total,
-            shipping_cost=shipping_cost,
-            payment_method=payment_method
-        )
-
-        if payment_method == 'card':
-            # Handle card payment
-            payment_intent_id = request.form.get('payment_intent_id')
-            if not payment_intent_id:
-                flash('Payment processing failed.', 'error')
-                return redirect(url_for('order.checkout'))
-            
-            order.stripe_payment_id = payment_intent_id
-            order.status = 'pending'
-            order.payment_status = 'paid'
-        else:  # COD
-            order.status = 'pending'
-            order.payment_status = 'pending'
-            order.payment_method = 'COD'
-
-        # Add order items
-        for cart_item in cart_items:
-            order_item = OrderItem(
-                order=order,
-                product_id=cart_item.product_id,
-                quantity=cart_item.quantity,
-                price=cart_item.product.price
-            )
-            db.session.add(order_item)
-
-        # Clear cart
-        for item in cart_items:
-            db.session.delete(item)
-        
-        db.session.add(order)
-        db.session.commit()
-
-        flash('Order placed successfully!', 'success')
-        return redirect(url_for('order.order_detail', order_id=order.id))
-
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f'Error processing order: {str(e)}')
-        flash('An error occurred while processing your order. Please try again.', 'error')
-        return redirect(url_for('order.checkout'))
-
-@bp.route('/<int:order_id>')
-@login_required
-def order_detail(order_id):
-    """Display order details"""
-    order = Order.query.filter_by(id=order_id, user_id=current_user.id).first_or_404()
-    return render_template('order/order_detail.html', order=order)
-
-@bp.route('/apply-promo', methods=['POST'])
-@login_required
-def apply_promo():
-    """Apply promotional code"""
-    promo_code = request.form.get('promo_code', '').upper()
-    cart_items = Cart.query.filter_by(user_id=current_user.id).all()
-    total = sum(item.product.price * item.quantity for item in cart_items)
-    
-    # Simple promo code logic (should be replaced with proper promo code system)
-    valid_codes = {
-        'WELCOME10': 10,
-        'SAVE20': 20,
-        'SPECIAL50': 50
-    }
-    
-    if promo_code in valid_codes:
-        discount = valid_codes[promo_code]
-        session['discount'] = discount
-        final_total = total - (total * discount / 100)
-        return jsonify({
-            'success': True,
-            'message': f'Promo code applied! {discount}% discount',
-            'discount': discount,
-            'final_total': final_total
-        })
-    else:
-        return jsonify({
-            'success': False,
-            'message': 'Invalid promo code'
-        })
-
-@bp.route('/<int:order_id>/cancel', methods=['POST'])
-@login_required
-def cancel_order(order_id):
-    order = Order.query.get_or_404(order_id)
-    if order.user_id != current_user.id:
-        flash('You cannot cancel this order.', 'error')
-        return redirect(url_for('order.orders'))
-    
-    if order.status not in ['pending', 'processing']:
-        flash('This order cannot be cancelled.', 'error')
-        return redirect(url_for('order.order_detail', order_id=order.id))
-    
-    order.cancel_order('user')
-    flash('Order has been cancelled.', 'success')
-    return redirect(url_for('order.order_detail', order_id=order.id))

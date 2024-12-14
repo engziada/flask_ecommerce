@@ -75,12 +75,12 @@
                     <strong>${{ "%.2f"|format(subtotal) }}</strong>
                 </li>
                 <li class="list-group-item d-flex justify-content-between">
-                    <span>Shipping</span>
-                    <strong>${{ "%.2f"|format(shipping_cost) }}</strong>
+                    <span>Shipping Cost</span>
+                    <span id="shipping-cost">$0.00</span>
                 </li>
                 <li class="list-group-item d-flex justify-content-between">
                     <span>Total (USD)</span>
-                    <strong>${{ "%.2f"|format(total) }}</strong>
+                    <strong id="order-total">${{ "%.2f"|format(subtotal) }}</strong>
                 </li>
             </ul>
         </div>
@@ -92,56 +92,29 @@
                 <input type="hidden" id="payment_intent_id" name="payment_intent_id">
 
                 <h4 class="mb-3">Shipping Address</h4>
-                {% if addresses %}
                 <div class="mb-3">
-                    <select class="form-select" name="shipping_address" required>
-                        <option value="">Choose...</option>
-                        {% for address in addresses %}
-                        <option value="{{ address.id }}">
-                            {{ address.name }} - {{ address.street }}, {{ address.city }}, {{ address.state }} {{ address.postal_code }}
-                        </option>
-                        {% endfor %}
-                        <option value="new">Add new address...</option>
-                    </select>
-                </div>
-                {% endif %}
-
-                <!-- New Address Form (initially hidden) -->
-                <div id="new-address-form" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="name">Full Name</label>
-                            <input type="text" class="form-control" id="name" name="name">
+                    {% if addresses %}
+                        <div class="mb-3">
+                            <select class="form-select" id="shipping_address" name="shipping_address" required>
+                                <option value="">Choose shipping address...</option>
+                                {% for address in addresses %}
+                                <option value="{{ address.id }}">
+                                    {{ address.street }}, {{ address.city }}, {{ address.state }} {{ address.postal_code }}
+                                </option>
+                                {% endfor %}
+                            </select>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="phone">Phone</label>
-                            <input type="tel" class="form-control" id="phone" name="phone">
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="street">Street Address</label>
-                        <input type="text" class="form-control" id="street" name="street">
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="city">City</label>
-                            <input type="text" class="form-control" id="city" name="city">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="state">State</label>
-                            <input type="text" class="form-control" id="state" name="state">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="zip_code">Zip Code</label>
-                            <input type="text" class="form-control" id="zip_code" name="zip_code">
-                        </div>
+                    {% else %}
+                        <p>No shipping addresses found.</p>
+                    {% endif %}
+                    <div class="mt-2">
+                        <a href="{{ url_for('address.add_address', next=url_for('order.checkout')) }}" class="btn btn-outline-primary">Add New Address</a>
                     </div>
                 </div>
 
                 <hr class="mb-4">
 
+                <!-- Payment Method -->
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="mb-0">Payment Method</h5>
@@ -162,13 +135,14 @@
                     </div>
                 </div>
 
+                <!-- Credit Card Form -->
                 <div id="card-element-container">
                     <div class="card mb-4">
                         <div class="card-header">
                             <h5 class="mb-0">Card Details</h5>
                         </div>
                         <div class="card-body">
-                            <div id="card-element" class="mb-3">
+                            <div id="card-element" class="form-control mb-3">
                                 <!-- A Stripe Element will be inserted here. -->
                             </div>
                             <div id="card-errors" role="alert" class="text-danger"></div>
@@ -187,107 +161,191 @@
 <!-- Stripe JS -->
 <script src="https://js.stripe.com/v3/"></script>
 <script>
-    // Show/hide new address form
-    document.querySelector('select[name="shipping_address"]').addEventListener('change', function() {
-        const newAddressForm = document.getElementById('new-address-form');
-        if (this.value === 'new') {
-            newAddressForm.style.display = 'block';
-        } else {
-            newAddressForm.style.display = 'none';
-        }
-    });
-
-    // Initialize Stripe
-    const stripe = Stripe('{{ config.STRIPE_PUBLIC_KEY }}');
-    const elements = stripe.elements();
-
-    // Create an instance of the card Element
-    const card = elements.create('card');
-    card.mount('#card-element');
-
-    // Handle payment method selection
-    const cardPaymentRadio = document.getElementById('card_payment');
-    const codPaymentRadio = document.getElementById('cod_payment');
-    const cardElementContainer = document.getElementById('card-element-container');
-
-    function toggleCardElement() {
-        if (cardPaymentRadio.checked) {
-            cardElementContainer.style.display = 'block';
-        } else {
-            cardElementContainer.style.display = 'none';
-        }
-    }
-
-    cardPaymentRadio.addEventListener('change', toggleCardElement);
-    codPaymentRadio.addEventListener('change', toggleCardElement);
-
-    // Handle form submission
-    const form = document.getElementById('payment-form');
-    form.addEventListener('submit', async function(event) {
-        event.preventDefault();
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize variables
+        const addressSelect = document.getElementById('shipping_address');
+        const cardElementContainer = document.getElementById('card-element-container');
+        const paymentMethodInputs = document.querySelectorAll('input[name="payment_method"]');
+        const stripe = Stripe('{{ config.STRIPE_PUBLIC_KEY }}');
+        const elements = stripe.elements();
         
-        const submitButton = form.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
+        // Create card element with custom style
+        const style = {
+            base: {
+                color: '#32325d',
+                fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+                fontSmoothing: 'antialiased',
+                fontSize: '16px',
+                '::placeholder': {
+                    color: '#aab7c4'
+                }
+            },
+            invalid: {
+                color: '#fa755a',
+                iconColor: '#fa755a'
+            }
+        };
         
-        const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-        
-        if (paymentMethod === 'card') {
-            try {
-                // First create a payment intent
-                const response = await fetch('{{ url_for("order.create_payment") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token() }}'
-                    }
-                });
-                
-                const data = await response.json();
-                
+        const card = elements.create('card', {style: style});
+        card.mount('#card-element');
+
+        // Update shipping cost when address or payment method changes
+        function updateShippingCost() {
+            const addressId = addressSelect.value;
+            const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+
+            if (!addressId) {
+                document.getElementById('shipping-cost').textContent = '$0.00';
+                document.getElementById('order-total').textContent = '${{ "%.2f"|format(subtotal) }}';
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('shipping-cost').textContent = 'Calculating...';
+
+            // Calculate shipping cost
+            fetch('{{ url_for("order.calculate_shipping") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    address_id: addressId,
+                    carrier_code: 'bosta', // Always use Bosta
+                    payment_method: paymentMethod
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
                 if (data.error) {
-                    const errorElement = document.getElementById('card-errors');
-                    errorElement.textContent = data.error;
-                    submitButton.disabled = false;
+                    document.getElementById('shipping-cost').textContent = 'Error';
+                    console.error('Shipping calculation error:', data.error);
                     return;
                 }
-                
-                // Then confirm the payment with the client secret
-                const { paymentIntent, error } = await stripe.confirmCardPayment(data.clientSecret, {
-                    payment_method: {
-                        card: card,
-                        billing_details: {
-                            name: document.querySelector('select[name="shipping_address"] option:checked').text
-                        }
-                    }
-                });
 
-                if (error) {
-                    const errorElement = document.getElementById('card-errors');
-                    errorElement.textContent = error.message;
-                    submitButton.disabled = false;
-                } else {
-                    // Payment successful
-                    document.getElementById('payment_intent_id').value = paymentIntent.id;
-                    form.submit();
-                }
-            } catch (err) {
-                const errorElement = document.getElementById('card-errors');
-                errorElement.textContent = 'An error occurred processing your payment. Please try again.';
-                submitButton.disabled = false;
-            }
-        } else {
-            // Handle COD payment - just submit the form
-            form.submit();
+                // Update costs
+                document.getElementById('shipping-cost').textContent = `$${data.shipping_cost.toFixed(2)}`;
+                document.getElementById('order-total').textContent = `$${data.total.toFixed(2)}`;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('shipping-cost').textContent = 'Error';
+            });
         }
-    });
 
-    // Handle card element errors
-    card.addEventListener('change', function(event) {
-        const displayError = document.getElementById('card-errors');
-        if (event.error) {
-            displayError.textContent = event.error.message;
-        } else {
-            displayError.textContent = '';
+        // Event listeners
+        addressSelect.addEventListener('change', updateShippingCost);
+        paymentMethodInputs.forEach(input => {
+            input.addEventListener('change', () => {
+                updateShippingCost();
+                const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked');
+                if (selectedPaymentMethod) {
+                    cardElementContainer.style.display = selectedPaymentMethod.value === 'card' ? 'block' : 'none';
+                }
+            });
+        });
+
+        // Handle form submission
+        const form = document.getElementById('payment-form');
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            // Get selected payment method
+            const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+
+            // For card payments, handle Stripe payment
+            if (paymentMethod === 'card') {
+                // Disable the submit button to prevent repeated clicks
+                const submitButton = form.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
+
+                try {
+                    const {error} = await stripe.createPaymentMethod({
+                        type: 'card',
+                        card: card,
+                    });
+
+                    if (error) {
+                        const errorElement = document.getElementById('card-errors');
+                        errorElement.textContent = error.message;
+                        submitButton.disabled = false;
+                        return;
+                    }
+
+                    // Create payment intent
+                    const response = await fetch('{{ url_for("order.create_payment") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            shipping_address_id: addressSelect.value,
+                            carrier_code: 'bosta', // Always use Bosta
+                            payment_method: paymentMethod
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.error) {
+                        const errorElement = document.getElementById('card-errors');
+                        errorElement.textContent = result.error;
+                        submitButton.disabled = false;
+                        return;
+                    }
+
+                    // Confirm the payment
+                    const {paymentIntent, error: confirmError} = await stripe.confirmCardPayment(
+                        result.clientSecret,
+                        {
+                            payment_method: {
+                                card: card,
+                                billing_details: {
+                                    email: '{{ current_user.email }}'
+                                }
+                            }
+                        }
+                    );
+
+                    if (confirmError) {
+                        const errorElement = document.getElementById('card-errors');
+                        errorElement.textContent = confirmError.message;
+                        submitButton.disabled = false;
+                    } else {
+                        // Payment successful
+                        document.getElementById('payment_intent_id').value = paymentIntent.id;
+                        form.submit();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    const errorElement = document.getElementById('card-errors');
+                    errorElement.textContent = 'An error occurred processing your payment. Please try again.';
+                    submitButton.disabled = false;
+                }
+            } else {
+                // For cash on delivery, just submit the form
+                form.submit();
+            }
+        });
+
+        // Handle payment method change
+        paymentMethodInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                if (this.value === 'card') {
+                    cardElementContainer.style.display = 'block';
+                } else {
+                    cardElementContainer.style.display = 'none';
+                }
+                updateShippingCost();
+            });
+        });
+
+        // Show/hide card element based on initial payment method
+        const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked');
+        if (selectedPaymentMethod) {
+            cardElementContainer.style.display = selectedPaymentMethod.value === 'card' ? 'block' : 'none';
         }
     });
 </script>

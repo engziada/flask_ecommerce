@@ -41,3 +41,33 @@ class Config:
     
     # Pagination
     PRODUCTS_PER_PAGE = 12
+    
+    # Shipping Services
+    ARAMEX_USERNAME = os.environ.get('ARAMEX_USERNAME')
+    ARAMEX_PASSWORD = os.environ.get('ARAMEX_PASSWORD')
+    ARAMEX_VERSION = os.environ.get('ARAMEX_VERSION', 'v1')
+    ARAMEX_ACCOUNT_ENTITY = os.environ.get('ARAMEX_ACCOUNT_ENTITY')
+    ARAMEX_ACCOUNT_NUMBER = os.environ.get('ARAMEX_ACCOUNT_NUMBER')
+    ARAMEX_ACCOUNT_PIN = os.environ.get('ARAMEX_ACCOUNT_PIN')
+    ARAMEX_ACCOUNT_COUNTRY_CODE = os.environ.get('ARAMEX_ACCOUNT_COUNTRY_CODE', 'GB')
+    
+    SHIPPING_ORIGIN_CITY = os.environ.get('SHIPPING_ORIGIN_CITY', 'London')
+    SHIPPING_ORIGIN_COUNTRY = os.environ.get('SHIPPING_ORIGIN_COUNTRY', 'GB')
+    
+    EGYPOST_API_KEY = os.environ.get('EGYPOST_API_KEY')
+    EGYPOST_API_SECRET = os.environ.get('EGYPOST_API_SECRET')
+
+    # Bosta Settings
+    BOSTA_API_KEY=os.environ.get('BOSTA_API_KEY')
+    BOSTA_EMAIL=os.environ.get('BOSTA_EMAIL')
+    BOSTA_PASSWORD=os.environ.get('BOSTA_PASSWORD')
+
+class TestingConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    WTF_CSRF_ENABLED = False
+    
+    # Bosta test credentials
+    BOSTA_EMAIL = os.environ.get('BOSTA_TEST_EMAIL', os.environ.get('BOSTA_EMAIL'))
+    BOSTA_PASSWORD = os.environ.get('BOSTA_TEST_PASSWORD', os.environ.get('BOSTA_PASSWORD'))
+    BOSTA_API_KEY = os.environ.get('BOSTA_TEST_API_KEY', os.environ.get('BOSTA_API_KEY'))

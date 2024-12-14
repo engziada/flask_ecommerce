@@ -3,97 +3,161 @@
 {% block title %}{% if address %}Edit{% else %}Add New{% endif %} Address{% endblock %}
 
 {% block content %}
-<div class="container my-4">
+<div class="container mt-4">
     <h2>{% if address %}Edit{% else %}Add New{% endif %} Address</h2>
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-body">
-                    <form method="post">
-                        {{ form.hidden_tag() }}
-                        <div class="mb-3">
-                            {{ form.name.label(class="form-label") }}
-                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}
-                            {% for error in form.name.errors %}
-                                <div class="invalid-feedback">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-
-                        <div class="mb-3">
-                            {{ form.address_line1.label(class="form-label") }}
-                            {{ form.address_line1(class="form-control" + (" is-invalid" if form.address_line1.errors else "")) }}
-                            {% for error in form.address_line1.errors %}
-                                <div class="invalid-feedback">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-
-                        <div class="mb-3">
-                            {{ form.address_line2.label(class="form-label") }}
-                            {{ form.address_line2(class="form-control" + (" is-invalid" if form.address_line2.errors else "")) }}
-                            {% for error in form.address_line2.errors %}
-                                <div class="invalid-feedback">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                {{ form.city.label(class="form-label") }}
-                                {{ form.city(class="form-control" + (" is-invalid" if form.city.errors else "")) }}
-                                {% for error in form.city.errors %}
-                                    <div class="invalid-feedback">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                {{ form.state.label(class="form-label") }}
-                                {{ form.state(class="form-control" + (" is-invalid" if form.state.errors else "")) }}
-                                {% for error in form.state.errors %}
-                                    <div class="invalid-feedback">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                {{ form.postal_code.label(class="form-label") }}
-                                {{ form.postal_code(class="form-control" + (" is-invalid" if form.postal_code.errors else "")) }}
-                                {% for error in form.postal_code.errors %}
-                                    <div class="invalid-feedback">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                {{ form.country.label(class="form-label") }}
-                                {{ form.country(class="form-control" + (" is-invalid" if form.country.errors else "")) }}
-                                {% for error in form.country.errors %}
-                                    <div class="invalid-feedback">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            {{ form.phone.label(class="form-label") }}
-                            {{ form.phone(class="form-control" + (" is-invalid" if form.phone.errors else "")) }}
-                            {% for error in form.phone.errors %}
-                                <div class="invalid-feedback">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-
-                        {% if not address %}
-                        <div class="mb-3 form-check">
-                            {{ form.is_default(class="form-check-input") }}
-                            {{ form.is_default.label(class="form-check-label") }}
-                        </div>
-                        {% endif %}
-
-                        <div class="d-flex justify-content-between">
-                            <button type="submit" class="btn btn-primary">
-                                {% if address %}Update{% else %}Add{% endif %} Address
-                            </button>
-                            <a href="{{ url_for('address.addresses') }}" class="btn btn-outline-secondary">Cancel</a>
-                        </div>
-                    </form>
+    
+    <form method="POST" class="needs-validation" novalidate>
+        {{ form.csrf_token }}
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                {{ form.name.label(class="form-label") }}
+                {{ form.name(class="form-control", placeholder="Full Name") }}
+                {% if form.name.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.name.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
                 </div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                {{ form.phone.label(class="form-label") }}
+                {{ form.phone(class="form-control", placeholder="Phone Number") }}
+                {% if form.phone.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.phone.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
         </div>
-    </div>
+
+        <div class="mb-3">
+            {{ form.street.label(class="form-label") }}
+            {{ form.street(class="form-control", placeholder="Street Address") }}
+            {% if form.street.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.street.errors %}
+                <span>{{ error }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                {{ form.city.label(class="form-label") }}
+                {{ form.city(class="form-control", placeholder="City") }}
+                {% if form.city.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.city.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-6 mb-3">
+                {{ form.state.label(class="form-label") }}
+                {{ form.state(class="form-control", placeholder="State/Province") }}
+                {% if form.state.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.state.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                {{ form.country.label(class="form-label") }}
+                {{ form.country(class="form-select") }}
+                {% if form.country.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.country.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-4 mb-3">
+                {{ form.governorate.label(class="form-label") }}
+                {{ form.governorate(class="form-select") }}
+                {% if form.governorate.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.governorate.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-4 mb-3">
+                {{ form.area.label(class="form-label") }}
+                {{ form.area(class="form-control", placeholder="Area") }}
+                {% if form.area.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.area.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                {{ form.district.label(class="form-label") }}
+                {{ form.district(class="form-control", placeholder="District/Area") }}
+                {% if form.district.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.district.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-4 mb-3">
+                {{ form.postal_code.label(class="form-label") }}
+                {{ form.postal_code(class="form-control", placeholder="Postal Code") }}
+                {% if form.postal_code.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.postal_code.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-4 mb-3">
+                {{ form.zip_code.label(class="form-label") }}
+                {{ form.zip_code(class="form-control", placeholder="ZIP/Postal Code") }}
+                {% if form.zip_code.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.zip_code.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-check mb-3">
+            {{ form.is_default(class="form-check-input") }}
+            {{ form.is_default.label(class="form-check-label") }}
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Save Address</button>
+            <a href="{{ url_for('address.addresses') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
 </div>
 {% endblock %}

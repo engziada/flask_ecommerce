@@ -18,6 +18,7 @@ def create_app(config_class=Config):
 
     # Import models here to avoid circular imports
     from app.models import Product, Category, Review, Cart, Wishlist, Order, User
+    from app.models.shipping import ShippingCarrier, ShippingMethod, ShippingQuote
 
     # Configure login manager
     login_manager.login_view = 'auth.login'
@@ -57,6 +58,9 @@ def create_app(config_class=Config):
 
     from app.coupons import bp as coupons_bp
     app.register_blueprint(coupons_bp, url_prefix='/coupons')
+
+    from app.shipping import bp as shipping_bp
+    app.register_blueprint(shipping_bp, url_prefix='/shipping')
 
     # Register admin blueprint
     from app.admin import bp as admin_bp
