@@ -1,155 +1,135 @@
-# Flask E-commerce Application
+# Flask E-commerce Platform
 
-A modern e-commerce web application built with Flask, featuring a responsive design, rich user interactions, and a comprehensive admin dashboard.
+A robust e-commerce platform built with Flask, featuring a modern and responsive design with comprehensive e-commerce functionality.
 
 ## Features
 
-### Core Features
-- User Authentication (Register, Login)
-- Product Catalog with Categories
-- Shopping Cart Management
-- Multiple Payment Methods
-- Wishlist Management
-- Order Processing
-- User Profile Management
-- Admin Dashboard
-- Toast Notifications
+### User Management
+- User registration and authentication
+- Profile management
+- Password reset functionality
+- Role-based access control (Admin, Customer)
 
-### Customer Features
-- Browse products by categories
-- Add/Remove items to cart
-- Add/Remove items to wishlist
-- Update cart quantities
-- View product details
-- Place orders with multiple payment options:
-  - Credit Card (Stripe)
-  - Cash on Delivery (COD)
-- View order history
-- Manage profile information
-- Real-time feedback with toast notifications
+### Product Management
+- Product catalog with categories
+- Product search functionality
+- Product reviews and ratings
+- Product image management
+- Detailed product descriptions
+
+### Shopping Experience
+- Shopping cart functionality
+- Wishlist management
+- Product filtering and sorting
+- Coupon system for discounts
+- Order tracking
+
+### Checkout Process
+- Multiple shipping methods
+- Address management
+- Order confirmation
+- Order history
 
 ### Admin Features
-- Product Management
-  - Add/Edit/Delete products
-  - Image upload handling
-  - Category assignment
-  - Stock management
-  - Pricing controls
+- Product management (CRUD operations)
+- Order management
+- User management
+- Coupon management
+- Sales analytics
 
-- Category Management
-  - Create/Edit/Delete categories
-  - Product associations
-
-- Order Management
-  - View and manage orders
-  - Update order status
-  - Process COD payments
-  - Order history tracking
-  - Payment status tracking
-
-- User Management
-  - View registered users
-  - Manage user accounts
-  - Toggle admin privileges
-
-### User Experience
-- Modern and responsive design
-- Real-time feedback with toast notifications
-- Dynamic cart and wishlist updates
-- Intuitive payment method selection
-- Clear order status tracking
-- Comprehensive error handling
-
-## Technical Stack
-
-### Backend
-- Flask (Python)
-- SQLite/SQLAlchemy
-- Flask-Login for authentication
-- Flask-WTF for forms and CSRF protection
-- Flask-Migrate for database migrations
-- Stripe API for payment processing
-
-### Frontend
-- HTML5, CSS3, JavaScript
-- Bootstrap 5 for responsive design
-- Font Awesome icons
-- Custom toast notifications
-- Dynamic UI updates
-- AJAX for seamless interactions
-
-### Payment Integration
-- Stripe for card payments
-- Custom implementation for COD
-- Secure payment processing
-- Payment status tracking
+### Additional Features
+- Responsive design
+- Form validation
+- Error handling
+- Session management
+- Database migrations
+- Security features
 
 ## Project Structure
+
 ```
 flask_ecommerce/
-├── app/
-│   ├── admin/             # Admin module
+├── app/                    # Main application package
+│   ├── address/           # Address management module
+│   ├── admin/             # Admin panel functionality
 │   ├── auth/              # Authentication module
-│   ├── cart/              # Shopping cart module
-│   ├── wishlist/          # Wishlist module
-│   ├── order/            # Order processing module
-│   ├── main/             # Main application module
-│   ├── static/           # Static assets (CSS, JS, images)
-│   │   ├── css/         # Stylesheets
-│   │   ├── js/          # JavaScript files
-│   │   └── images/      # Uploaded images
+│   ├── cart/              # Shopping cart functionality
+│   ├── coupons/           # Coupon system
+│   ├── errors/            # Error handlers
+│   ├── forms/             # Form definitions
+│   ├── main/              # Main routes
+│   ├── models/            # Database models
+│   ├── order/            # Order processing
+│   ├── reviews/          # Product reviews
+│   ├── shipping/         # Shipping methods
+│   ├── shop/             # Shop related views
+│   ├── static/           # Static files (CSS, JS, images)
 │   ├── templates/        # HTML templates
-│   └── __init__.py      # Application factory
-├── migrations/          # Database migrations
-├── instance/           # Instance-specific files
-├── requirements.txt    # Project dependencies
-└── README.md          # Project documentation
+│   ├── utils/            # Utility functions
+│   └── wishlist/         # Wishlist functionality
+├── migrations/            # Database migrations
+├── tests/                # Test suite
+├── scripts/              # Utility scripts
+├── config.py             # Configuration settings
+├── requirements.txt      # Project dependencies
+├── run.py               # Application entry point
+└── wsgi.py              # WSGI entry point
 ```
 
-## Setup and Installation
+## Key Files Description
+
+- `config.py`: Application configuration settings
+- `run.py`: Development server startup script
+- `wsgi.py`: Production server entry point
+- `init_db.py`: Database initialization script
+- `migrate.py`: Database migration script
+- `requirements.txt`: Project dependencies
+- `app/__init__.py`: Application factory and initialization
+- `app/extensions.py`: Flask extensions initialization
+- `app/models/`: Database models for all entities
+- `app/forms/`: WTForms form definitions
+- `app/templates/`: Jinja2 templates
+- `app/static/`: Static assets (CSS, JavaScript, images)
+
+## Getting Started
 
 1. Clone the repository
-2. Create a virtual environment:
-   ```
-   python -m venv venv
-   ```
+2. Create a virtual environment: `python -m venv venv`
 3. Activate the virtual environment:
    - Windows: `venv\Scripts\activate`
    - Unix/MacOS: `source venv/bin/activate`
-4. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-5. Set up environment variables:
-   ```
-   FLASK_APP=run.py
-   FLASK_ENV=development
-   SECRET_KEY=your-secret-key
-   STRIPE_PUBLIC_KEY=your-stripe-public-key
-   STRIPE_SECRET_KEY=your-stripe-secret-key
-   ```
-6. Initialize the database:
-   ```
-   flask db upgrade
-   ```
-7. Run the application:
-   ```
-   flask run
-   ```
+4. Install dependencies: `pip install -r requirements.txt`
+5. Set up environment variables in `.env`
+6. Initialize the database: `python init_db.py`
+7. Run migrations: `python migrate.py`
+8. Start the development server: `python run.py`
 
-## Access Information
+## Environment Variables
 
-- Main site: http://localhost:5000
-- Admin dashboard: http://localhost:5000/admin
+Required environment variables in `.env`:
+- `FLASK_APP`
+- `FLASK_ENV`
+- `SECRET_KEY`
+- `DATABASE_URL`
+- `MAIL_SERVER`
+- `MAIL_PORT`
+- `MAIL_USERNAME`
+- `MAIL_PASSWORD`
 
-Default admin credentials:
-- Email: admin@example.com
-- Password: adminpass
+## Testing
+
+Run tests using: `python -m pytest`
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
+
+Last Updated: December 15, 2024
