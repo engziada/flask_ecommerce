@@ -240,12 +240,23 @@ def process_checkout():
         try:
             bosta_service = BostaShippingService()
             delivery_order = bosta_service.create_shipping_order(order)
-            if delivery_order:
+            
+            if delivery_order and isinstance(delivery_order, dict):
                 # Update order with tracking info
-                order.tracking_number = delivery_order.get('trackingNumber')
-                order.carrier_tracking_url = delivery_order.get('trackingURL')
-                db.session.commit()
-                current_app.logger.info(f"Successfully created delivery order for order {order.id}")
+                order.delivery_tracking_number = delivery_order.get('tracking_number')
+                order.delivery_order_id = delivery_order.get('delivery_id')
+                order.delivery_status = delivery_order.get('status', 'Pickup requested')
+                order.delivery_status_code = delivery_order.get('status_code', 10)
+                order.delivery_created_at = datetime.utcnow()
+                order.delivery_updated_at = datetime.utcnow()
+                
+                # Make sure to commit the changes
+                try:
+                    db.session.commit()
+                    current_app.logger.info(f"Successfully created delivery order for order {order.id} with tracking number {order.delivery_tracking_number}")
+                except Exception as db_error:
+                    current_app.logger.error(f"Failed to save delivery information to database: {str(db_error)}")
+                    db.session.rollback()
             else:
                 current_app.logger.warning(f"No delivery order data returned for order {order.id}")
         except Exception as e:
@@ -372,10 +383,15 @@ def cancel_order(order_id):
             return redirect(url_for('order.orders'))
             
         # Cancel Bosta delivery if exists
-        if order.delivery_id:
+        if order.delivery_order_id:
             try:
                 bosta_service = BostaShippingService()
-                bosta_service.cancel_shipping_order(order.delivery_id)
+                bosta_service.cancel_shipping_order(order.delivery_order_id)
+                
+                # Update delivery status
+                order.delivery_status = 'CANCELLED'
+                order.delivery_updated_at = datetime.utcnow()
+                
                 current_app.logger.info(f"Cancelled Bosta delivery for order {order_id}")
             except Exception as e:
                 current_app.logger.error(f"Failed to cancel Bosta delivery for order {order_id}: {str(e)}")

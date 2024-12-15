@@ -415,117 +415,136 @@ class BostaShippingService:
     def create_shipping_order(self, order):
         """Create shipping order with Bosta"""
         try:
-            if not self.token and not self._login():
-                raise Exception("Failed to authenticate with Bosta")
+            # Ensure we have a valid token
+            self._ensure_token()
+            
+            # Get default pickup location if not set
+            if not self.default_location:
+                self._get_default_location()
                 
-            if not self.default_location and not self._get_default_location():
-                raise Exception("No pickup location available")
+            # Prepare delivery payload
+            payload = self._prepare_delivery_payload(order)
             
-            # Get shipping address
-            address = order.shipping_address
-            if not address:
-                raise Exception("No shipping address provided")
-            
-            # Extract and validate city
-            delivery_city = address.city
-            normalized_city, city_code = normalize_city_name(delivery_city)
-            if not city_code:
-                current_app.logger.error(f"Invalid city name provided: {delivery_city}")
-                return None
-            
-            # Get default location data
-            default_location = self.default_location['address']
-            pickup_city = default_location.get('city', {}).get('name', 'Cairo')
-            
-            # Get zone and district IDs for both pickup and delivery addresses
-            pickup_zone_id, pickup_district_id = self._get_zone_and_district(pickup_city)
-            delivery_zone_id, delivery_district_id = self._get_zone_and_district(normalized_city)
-            
-            if not all([pickup_zone_id, pickup_district_id, delivery_zone_id, delivery_district_id]):
-                raise Exception("Could not get required zone and district IDs")
-            
-            # Create delivery payload
-            webhook_url = "https://www.google.com/"  # Temporary webhook URL for testing
-            
-            payload = {
-                "type": 10,  # Delivery
-                "specs": {
-                    "packageType": "Parcel",
-                    "size": "MEDIUM",
-                    "packageDetails": {
-                        "itemsCount": len(order.items),
-                        "description": f"Order #{order.id} - {', '.join(item.ordered_product.name for item in order.items[:3])}"
-                    }
-                },
-                "notes": f"Order #{order.id}",
-                "cod": float(order.total) if order.payment_method == 'cod' else 0,
-                "dropOffAddress": {
-                    "city": normalized_city,
-                    "districtId": delivery_district_id,
-                    "zoneId": delivery_zone_id,
-                    "firstLine": address.street,
-                    "secondLine": address.district if address.district else '',
-                    "buildingNumber": address.building_number,
-                    "floor": address.floor,
-                    "apartment": address.apartment
-                },
-                "pickupAddress": {
-                    "city": pickup_city,
-                    "districtId": pickup_district_id,
-                    "zoneId": pickup_zone_id,
-                    "firstLine": default_location.get('firstLine', ''),
-                    "secondLine": default_location.get('secondLine', ''),
-                    "buildingNumber": default_location.get('buildingNumber', ''),
-                    "floor": default_location.get('floor', ''),
-                    "apartment": default_location.get('apartment', '')
-                },
-                "returnAddress": {
-                    "city": pickup_city,
-                    "districtId": pickup_district_id,
-                    "zoneId": pickup_zone_id,
-                    "firstLine": default_location.get('firstLine', ''),
-                    "secondLine": default_location.get('secondLine', ''),
-                    "buildingNumber": default_location.get('buildingNumber', ''),
-                    "floor": default_location.get('floor', ''),
-                    "apartment": default_location.get('apartment', '')
-                },
-                "businessReference": f"order_{order.id}",
-                "uniqueBusinessReference": f"order_{order.id}_{datetime.utcnow().timestamp()}",
-                "receiver": {
-                    "firstName": address.name.split()[0],
-                    "lastName": address.name.split()[-1] if len(address.name.split()) > 1 else "",
-                    "phone": address.phone,
-                    "email": order.user.email
-                },
-                "webhookUrl": webhook_url
-            }
-            
+            # Log the payload for debugging
             current_app.logger.info(f"Creating Bosta delivery with payload: {payload}")
             
-            # Create delivery
+            # Make API request
             response = requests.post(
                 f"{self.base_url}/deliveries",
                 headers=self.headers,
                 json=payload
             )
             
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('success'):
-                    current_app.logger.info(f"Successfully created Bosta delivery: {data}")
-                    return data.get('data')
-                else:
-                    error_msg = data.get('message', 'Unknown error from Bosta API')
-                    current_app.logger.error(f"Bosta API error: {error_msg}")
-                    raise Exception(error_msg)
-            else:
+            # Check response
+            if response.status_code not in [200, 201]:
                 error_msg = f"Failed to create Bosta delivery. Status: {response.status_code}, Response: {response.text}"
                 current_app.logger.error(error_msg)
-                raise Exception(error_msg)
+                raise ValueError(error_msg)
                 
+            response_data = response.json()
+            if not response_data.get('success'):
+                error_msg = f"Failed to create Bosta delivery. Response: {response.text}"
+                current_app.logger.error(error_msg)
+                raise ValueError(error_msg)
+                
+            # Log success
+            current_app.logger.info(f"Successfully created Bosta delivery. Response: {response.text}")
+            
+            # Return tracking number and delivery ID
+            data = response_data.get('data', {})
+            return {
+                'tracking_number': data.get('trackingNumber'),
+                'delivery_id': data.get('_id'),
+                'status': data.get('state', {}).get('value'),
+                'status_code': data.get('state', {}).get('code')
+            }
+            
         except Exception as e:
             current_app.logger.error(f"Error creating Bosta delivery: {str(e)}")
             raise
+    
+    def _prepare_delivery_payload(self, order):
+        """Prepare delivery payload"""
+        # Get shipping address
+        address = order.shipping_address
+        if not address:
+            raise Exception("No shipping address provided")
+        
+        # Extract and validate city
+        delivery_city = address.city
+        normalized_city, city_code = normalize_city_name(delivery_city)
+        if not city_code:
+            current_app.logger.error(f"Invalid city name provided: {delivery_city}")
+            return None
+        
+        # Get default location data
+        default_location = self.default_location['address']
+        pickup_city = default_location.get('city', {}).get('name', 'Cairo')
+        
+        # Get zone and district IDs for both pickup and delivery addresses
+        pickup_zone_id, pickup_district_id = self._get_zone_and_district(pickup_city)
+        delivery_zone_id, delivery_district_id = self._get_zone_and_district(normalized_city)
+        
+        if not all([pickup_zone_id, pickup_district_id, delivery_zone_id, delivery_district_id]):
+            raise Exception("Could not get required zone and district IDs")
+        
+        # Create delivery payload
+        webhook_url = "https://www.google.com/"  # Temporary webhook URL for testing
+        
+        payload = {
+            "type": 10,  # Delivery
+            "specs": {
+                "packageType": "Parcel",
+                "size": "MEDIUM",
+                "packageDetails": {
+                    "itemsCount": len(order.items),
+                    "description": f"Order #{order.id} - {', '.join(item.ordered_product.name for item in order.items[:3])}"
+                }
+            },
+            "notes": f"Order #{order.id}",
+            "cod": float(order.total) if order.payment_method == 'cod' else 0,
+            "dropOffAddress": {
+                "city": normalized_city,
+                "districtId": delivery_district_id,
+                "zoneId": delivery_zone_id,
+                "firstLine": address.street,
+                "secondLine": address.district if address.district else '',
+                "buildingNumber": address.building_number,
+                "floor": address.floor,
+                "apartment": address.apartment
+            },
+            "pickupAddress": {
+                "city": pickup_city,
+                "districtId": pickup_district_id,
+                "zoneId": pickup_zone_id,
+                "firstLine": default_location.get('firstLine', ''),
+                "secondLine": default_location.get('secondLine', ''),
+                "buildingNumber": default_location.get('buildingNumber', ''),
+                "floor": default_location.get('floor', ''),
+                "apartment": default_location.get('apartment', '')
+            },
+            "returnAddress": {
+                "city": pickup_city,
+                "districtId": pickup_district_id,
+                "zoneId": pickup_zone_id,
+                "firstLine": default_location.get('firstLine', ''),
+                "secondLine": default_location.get('secondLine', ''),
+                "buildingNumber": default_location.get('buildingNumber', ''),
+                "floor": default_location.get('floor', ''),
+                "apartment": default_location.get('apartment', '')
+            },
+            "businessReference": f"order_{order.id}",
+            "uniqueBusinessReference": f"order_{order.id}_{datetime.utcnow().timestamp()}",
+            "receiver": {
+                "firstName": address.name.split()[0],
+                "lastName": address.name.split()[-1] if len(address.name.split()) > 1 else "",
+                "phone": address.phone,
+                "email": order.user.email
+            },
+            "webhookUrl": webhook_url
+        }
+        
+        return payload
     
     def _ensure_token(self):
         """Ensure we have a valid token for API calls"""
@@ -698,3 +717,15 @@ def track_shipment(order):
         
     service = BostaShippingService()
     return service.track_shipment(order.delivery_tracking_number)
+
+def cancel_shipping_order(order):
+    """Cancel a shipping order with the shipping provider"""
+    if not order.delivery_order_id:
+        return False
+        
+    try:
+        shipping_service = BostaShippingService()
+        return shipping_service.cancel_shipping_order(order.delivery_order_id)
+    except Exception as e:
+        current_app.logger.error(f"Failed to cancel shipping order: {str(e)}")
+        return False
