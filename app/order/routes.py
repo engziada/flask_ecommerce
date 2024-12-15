@@ -207,14 +207,23 @@ def process_checkout():
             total=total
         )
         
-        # Add order items
+        # Add order items and update stock
         for cart_item in cart_items:
+            # Check if enough stock is available
+            if cart_item.product.stock < cart_item.quantity:
+                flash(f'Not enough stock available for {cart_item.product.name}. Only {cart_item.product.stock} items left.', 'error')
+                return redirect(url_for('cart.cart'))
+                
             order_item = OrderItem(
                 product_id=cart_item.product_id,
                 quantity=cart_item.quantity,
                 price=cart_item.product.price
             )
             order.items.append(order_item)
+            
+            # Update product stock
+            cart_item.product.stock -= cart_item.quantity
+            current_app.logger.info(f"Updated stock for product {cart_item.product.name}: {cart_item.product.stock}")
         
         db.session.add(order)
         db.session.flush()  # This assigns the order.id without committing
@@ -396,6 +405,11 @@ def cancel_order(order_id):
             except Exception as e:
                 current_app.logger.error(f"Failed to cancel Bosta delivery for order {order_id}: {str(e)}")
                 # Continue with order cancellation even if delivery cancellation fails
+        
+        # Restore product stock
+        for item in order.items:
+            item.product.stock += item.quantity
+            current_app.logger.info(f"Restored {item.quantity} items to stock for product {item.product.name}")
         
         # Update order status
         order.status = 'cancelled'
