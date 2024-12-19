@@ -128,8 +128,22 @@ Run tests using: `python -m pytest`
 4. Push to the branch
 5. Create a Pull Request
 
+## Checkpoints
+
+### Checkpoint 4 (2024-12-19)
+- Fixed coupon functionality in checkout process
+- Added proper coupon display in cart and checkout pages
+- Implemented correct discount calculations for percentage and fixed amount coupons
+- Ensured coupon discounts are properly applied throughout the order process
+- Updated templates to show applied coupon details
+
+To restore to this checkpoint:
+```bash
+git restore --source=checkpoint-4 .
+```
+
 ## License
 
 This project is licensed under the MIT License.
 
-Last Updated: December 15, 2024
+Last Updated: December 19, 2024

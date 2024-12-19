@@ -24,8 +24,61 @@ function handleImagePreview(input) {
     }
 }
 
-// Initialize image preview handlers
+// Coupon Management Functions
+window.editCoupon = function(coupon) {
+    // Populate modal fields with coupon data
+    document.getElementById('couponId').value = coupon.id;
+    document.getElementById('code').value = coupon.code;
+    document.getElementById('discountType').value = coupon.discount_type;
+    document.getElementById('discountAmount').value = coupon.discount_amount;
+    document.getElementById('minPurchaseAmount').value = coupon.min_purchase_amount;
+    document.getElementById('maxDiscountAmount').value = coupon.max_discount_amount || '';
+    document.getElementById('validFrom').value = coupon.valid_from ? coupon.valid_from.split('T')[0] : '';
+    document.getElementById('validUntil').value = coupon.valid_until ? coupon.valid_until.split('T')[0] : '';
+    document.getElementById('usageLimit').value = coupon.usage_limit || '';
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('couponModal'));
+    modal.show();
+}
+
+window.deleteCoupon = function(couponId) {
+    if (confirm('Are you sure you want to delete this coupon?')) {
+        fetch(`/admin/coupons/${couponId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the row from the table
+                const row = document.querySelector(`tr[data-coupon-id="${couponId}"]`);
+                if (row) row.remove();
+                showToast('Success', 'Coupon deleted successfully', 'success');
+            } else {
+                showToast('Error', data.message || 'Failed to delete coupon', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error', 'Failed to delete coupon', 'error');
+        });
+    }
+}
+
+// Toast notification function
+function showToast(title, message, type = 'info') {
+    const event = new CustomEvent('flash-message', {
+        detail: { message, category: type }
+    });
+    window.dispatchEvent(event);
+}
+
+// Document ready handler
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize image preview handlers
     const imageInput = document.querySelector('input[type="file"][accept="image/*"]');
     if (imageInput) {
         imageInput.addEventListener('change', function() {
@@ -67,4 +120,86 @@ document.addEventListener('DOMContentLoaded', function() {
             form.classList.add('was-validated');
         });
     });
+
+    // Handle form submission
+    const form = document.getElementById('couponForm');
+    const saveButton = document.getElementById('saveCoupon');
+    
+    if (saveButton) {
+        saveButton.addEventListener('click', function() {
+            const formData = new FormData(form);
+            const couponId = document.getElementById('couponId').value;
+            const url = couponId ? `/admin/coupons/${couponId}/edit` : '/admin/coupons/create';
+            
+            fetch(url, {
+                method: couponId ? 'PUT' : 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal and refresh page
+                    bootstrap.Modal.getInstance(document.getElementById('couponModal')).hide();
+                    location.reload();
+                } else {
+                    showToast('Error', data.message || 'Failed to save coupon', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Error', 'Failed to save coupon', 'error');
+            });
+        });
+    }
+
+    // Handle discount type changes
+    const discountTypeSelect = document.getElementById('discountType');
+    if (discountTypeSelect) {
+        discountTypeSelect.addEventListener('change', function() {
+            const amountGroup = document.querySelector('.discount-amount-group');
+            const symbol = document.querySelector('.discount-symbol');
+            const amountInput = document.getElementById('discountAmount');
+            
+            if (this.value === 'percentage') {
+                symbol.textContent = '%';
+                amountInput.max = '100';
+                amountGroup.style.display = 'block';
+            } else if (this.value === 'fixed') {
+                symbol.textContent = '$';
+                amountInput.removeAttribute('max');
+                amountGroup.style.display = 'block';
+            } else {
+                amountGroup.style.display = 'none';
+            }
+        });
+    }
+
+    // Reset form when modal is closed
+    const couponModal = document.getElementById('couponModal');
+    if (couponModal) {
+        couponModal.addEventListener('hidden.bs.modal', function () {
+            form.reset();
+            document.getElementById('couponId').value = '';
+        });
+    }
+
+    // Handle coupon edit and delete buttons using event delegation
+    const couponsTable = document.getElementById('couponsTable');
+    if (couponsTable) {
+        couponsTable.addEventListener('click', function(e) {
+            const editButton = e.target.closest('[data-coupon]');
+            const deleteButton = e.target.closest('[data-coupon-id]');
+
+            if (editButton) {
+                const coupon = JSON.parse(editButton.dataset.coupon);
+                editCoupon(coupon);
+            } else if (deleteButton) {
+                const couponId = deleteButton.dataset.couponId;
+                deleteCoupon(couponId);
+            }
+        });
+    }
 });

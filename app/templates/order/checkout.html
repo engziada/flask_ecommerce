@@ -56,17 +56,23 @@
                         <h6 class="my-0">{{ item.product.name }}</h6>
                         <small class="text-muted">Quantity: {{ item.quantity }}</small>
                     </div>
-                    <span class="text-muted">${{ "%.2f"|format(item.subtotal) }}</span>
+                    <span class="text-muted">${{ "%.2f"|format(item.product.price * item.quantity) }}</span>
                 </li>
                 {% endfor %}
 
-                {% if discount_percent > 0 %}
+                {% if coupon %}
                 <li class="list-group-item d-flex justify-content-between bg-light">
                     <div class="text-success">
-                        <h6 class="my-0">Discount</h6>
-                        <small>{{ discount_percent }}% off</small>
+                        <h6 class="my-0">Coupon Applied</h6>
+                        <small>{{ coupon.code }} 
+                            {% if coupon.discount_type == 'percentage' %}
+                            ({{ coupon.discount_amount }}% off)
+                            {% else %}
+                            (${{ "%.2f"|format(coupon.discount_amount) }} off)
+                            {% endif %}
+                        </small>
                     </div>
-                    <span class="text-success">-${{ "%.2f"|format(discount_amount) }}</span>
+                    <span class="text-success">-${{ "%.2f"|format(discount) }}</span>
                 </li>
                 {% endif %}
 
@@ -80,7 +86,7 @@
                 </li>
                 <li class="list-group-item d-flex justify-content-between">
                     <span>Total (USD)</span>
-                    <strong id="order-total">${{ "%.2f"|format(subtotal) }}</strong>
+                    <strong id="order-total">${{ "%.2f"|format(total) }}</strong>
                 </li>
             </ul>
         </div>
@@ -195,18 +201,12 @@
         // Update shipping cost when address or payment method changes
         function updateShippingCost() {
             const addressId = addressSelect.value;
-            const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-
-            if (!addressId) {
-                document.getElementById('shipping-cost').textContent = '$0.00';
-                document.getElementById('order-total').textContent = '${{ "%.2f"|format(subtotal) }}';
+            const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
+            
+            if (!addressId || !selectedPayment) {
                 return;
             }
 
-            // Show loading state
-            document.getElementById('shipping-cost').textContent = 'Calculating...';
-
-            // Calculate shipping cost
             fetch('{{ url_for("order.calculate_shipping") }}', {
                 method: 'POST',
                 headers: {
@@ -216,24 +216,33 @@
                 body: JSON.stringify({
                     address_id: addressId,
                     carrier_code: 'bosta', // Always use Bosta
-                    payment_method: paymentMethod
+                    payment_method: selectedPayment.value
                 })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.error) {
-                    document.getElementById('shipping-cost').textContent = 'Error';
-                    console.error('Shipping calculation error:', data.error);
-                    return;
+                if (data.success) {
+                    const shippingCostElement = document.getElementById('shipping-cost');
+                    const orderTotalElement = document.getElementById('order-total');
+                    
+                    shippingCostElement.textContent = `$${data.shipping_cost.toFixed(2)}`;
+                    
+                    // Calculate total with discount
+                    const total = data.subtotal + data.shipping_cost - data.discount;
+                    orderTotalElement.textContent = `$${total.toFixed(2)}`;
+                    
+                    // Update payment intent if using card
+                    if (selectedPayment.value === 'card') {
+                        updatePaymentIntent(total);
+                    }
+                } else {
+                    console.error('Error:', data.error);
+                    showToast('Error', data.error, 'error');
                 }
-
-                // Update costs
-                document.getElementById('shipping-cost').textContent = `$${data.shipping_cost.toFixed(2)}`;
-                document.getElementById('order-total').textContent = `$${data.total.toFixed(2)}`;
             })
             .catch(error => {
                 console.error('Error:', error);
-                document.getElementById('shipping-cost').textContent = 'Error';
+                showToast('Error', 'Failed to calculate shipping cost', 'error');
             });
         }
 

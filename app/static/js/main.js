@@ -301,6 +301,97 @@ function showToast(message, type = 'info') {
     });
 }
 
+// Coupon functionality
+function applyCoupon() {
+    const couponInput = document.getElementById('couponCode');
+    const couponCode = couponInput.value.trim();
+    const couponMessage = document.getElementById('couponMessage');
+    const applyButton = document.getElementById('applyCoupon');
+
+    if (!couponCode) {
+        showToast('Please enter a coupon code', 'warning');
+        return;
+    }
+
+    fetch('/cart/coupons/apply', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({ code: couponCode })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update UI elements
+            document.getElementById('subtotal').textContent = `$${data.subtotal.toFixed(2)}`;
+            
+            // Show or update discount row
+            let discountRow = document.getElementById('discount-row');
+            if (!discountRow) {
+                discountRow = document.createElement('div');
+                discountRow.id = 'discount-row';
+                discountRow.className = 'd-flex justify-content-between mb-2';
+                discountRow.innerHTML = '<span>Discount:</span><span id="discount"></span>';
+                document.getElementById('subtotal').parentNode.insertAdjacentElement('afterend', discountRow);
+            }
+            document.getElementById('discount').textContent = `-$${data.discount.toFixed(2)}`;
+            
+            // Update total
+            document.getElementById('total').textContent = `$${data.new_total.toFixed(2)}`;
+            
+            // Update button text
+            applyButton.textContent = 'Remove';
+            
+            showToast(data.message, 'success');
+        } else {
+            showToast(data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('An error occurred while applying the coupon', 'error');
+    });
+}
+
+function removeCoupon() {
+    fetch('/cart/coupons/remove', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Clear coupon input
+            document.getElementById('couponCode').value = '';
+            
+            // Update total
+            document.getElementById('total').textContent = `$${data.new_total.toFixed(2)}`;
+            
+            // Remove discount row if it exists
+            const discountRow = document.getElementById('discount-row');
+            if (discountRow) {
+                discountRow.remove();
+            }
+            
+            // Update button text
+            document.getElementById('applyCoupon').textContent = 'Apply';
+            
+            showToast(data.message, 'success');
+        } else {
+            showToast(data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('An error occurred while removing the coupon', 'error');
+    });
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     // Setup search
@@ -324,5 +415,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize counts when page loads
     if (document.querySelector('a[href*="cart"]')) {
         loadCounts();
+    }
+    
+    // Setup coupon button
+    const applyCouponBtn = document.getElementById('applyCoupon');
+    if (applyCouponBtn) {
+        applyCouponBtn.addEventListener('click', () => {
+            if (applyCouponBtn.textContent.trim() === 'Apply') {
+                applyCoupon();
+            } else {
+                removeCoupon();
+            }
+        });
     }
 });

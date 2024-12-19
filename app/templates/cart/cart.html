@@ -53,25 +53,40 @@
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Order Summary</h5>
-                    <div class="d-flex justify-content-between mb-3">
+                    <div class="d-flex justify-content-between mb-2">
                         <span>Subtotal:</span>
-                        <span class="cart-total">${{ "%.2f"|format(total) }}</span>
+                        <span id="subtotal">${{ "%.2f"|format(subtotal) }}</span>
                     </div>
+                    {% if shipping_cost is defined %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Shipping:</span>
+                        <span id="shipping">${{ "%.2f"|format(shipping_cost) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if discount > 0 %}
+                    <div id="discount-row" class="d-flex justify-content-between mb-2">
+                        <span>Discount:</span>
+                        <span id="discount">-${{ "%.2f"|format(discount) }}</span>
+                    </div>
+                    {% endif %}
                     <hr>
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <h5 class="card-title">Apply Coupon</h5>
-                            <form id="coupon-form" class="d-flex gap-2">
-                                <input type="text" id="coupon-code" name="code" class="form-control" placeholder="Enter coupon code">
-                                <button type="submit" class="btn btn-primary">Apply</button>
-                            </form>
-                            <div id="coupon-message" class="mt-2"></div>
-                        </div>
-                    </div>
                     <div class="d-flex justify-content-between mb-3">
-                        <span class="h5">Total:</span>
-                        <span class="h5 cart-total">${{ "%.2f"|format(total) }}</span>
+                        <strong>Total:</strong>
+                        <strong id="total">${{ "%.2f"|format(total) }}</strong>
                     </div>
+
+                    <!-- Coupon Code Section -->
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="couponCode" placeholder="Enter coupon code" 
+                                   value="{{ coupon_code if coupon_code else '' }}">
+                            <button class="btn btn-outline-secondary" type="button" id="applyCoupon">
+                                {% if coupon_code %}Remove{% else %}Apply{% endif %}
+                            </button>
+                        </div>
+                        <div id="couponMessage" class="form-text"></div>
+                    </div>
+
                     <a href="{{ url_for('order.checkout') }}" class="btn btn-primary w-100">
                         Proceed to Checkout
                     </a>
@@ -148,55 +163,127 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    document.getElementById('coupon-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const code = document.getElementById('coupon-code').value;
-        const cartTotal = parseFloat(document.querySelector('.cart-total').textContent.slice(1));
-        
-        fetch('/coupons/apply', {
+    // Coupon handling
+    const applyCouponBtn = document.getElementById('applyCoupon');
+    const couponInput = document.getElementById('couponCode');
+    const couponMessage = document.getElementById('couponMessage');
+
+    if (!applyCouponBtn || !couponInput || !couponMessage) {
+        console.error('Missing required coupon elements:', {
+            applyCouponBtn: !!applyCouponBtn,
+            couponInput: !!couponInput,
+            couponMessage: !!couponMessage
+        });
+        return;
+    }
+
+    applyCouponBtn.addEventListener('click', function() {
+        const isRemoving = applyCouponBtn.textContent.trim() === 'Remove';
+        const endpoint = isRemoving ? 
+            "{{ url_for('cart.remove_coupon') }}" : 
+            "{{ url_for('cart.apply_coupon') }}";
+            
+        console.log('Coupon action:', {
+            isRemoving,
+            endpoint,
+            code: couponInput.value
+        });
+
+        fetch(endpoint, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
             },
-            body: new URLSearchParams({
-                code: code,
-                cart_total: cartTotal
+            body: isRemoving ? null : JSON.stringify({
+                code: couponInput.value
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
         .then(data => {
-            const messageDiv = document.getElementById('coupon-message');
+            console.log('Response data:', data);
             
-            if (data.error) {
-                messageDiv.className = 'alert alert-danger mt-2';
-                messageDiv.textContent = data.error;
+            if (data.success) {
+                // Update UI elements
+                const subtotalElem = document.getElementById('subtotal');
+                const discountElem = document.getElementById('discount');
+                const totalElem = document.getElementById('total');
+                const discountRow = document.getElementById('discount-row');
+
+                console.log('UI elements:', {
+                    subtotalElem: !!subtotalElem,
+                    discountElem: !!discountElem,
+                    totalElem: !!totalElem,
+                    discountRow: !!discountRow
+                });
+
+                if (!isRemoving && data.discount > 0) {
+                    // Show discount row
+                    if (!discountRow) {
+                        console.log('Creating new discount row');
+                        const newDiscountRow = document.createElement('div');
+                        newDiscountRow.id = 'discount-row';
+                        newDiscountRow.className = 'd-flex justify-content-between mb-2';
+                        newDiscountRow.innerHTML = `
+                            <span>Discount:</span>
+                            <span id="discount">-$${data.discount.toFixed(2)}</span>
+                        `;
+                        totalElem.parentElement.parentElement.insertBefore(
+                            newDiscountRow, 
+                            totalElem.parentElement.parentElement.querySelector('hr')
+                        );
+                    } else {
+                        console.log('Updating existing discount row');
+                        discountElem.textContent = `-$${data.discount.toFixed(2)}`;
+                        discountRow.style.display = 'flex';
+                    }
+                } else {
+                    // Hide discount row
+                    if (discountRow) {
+                        console.log('Hiding discount row');
+                        discountRow.style.display = 'none';
+                    }
+                }
+
+                // Update total
+                if (totalElem) {
+                    console.log('Updating total:', data.new_total);
+                    totalElem.textContent = `$${data.new_total.toFixed(2)}`;
+                }
+
+                // Update button text and input
+                applyCouponBtn.textContent = isRemoving ? 'Apply' : 'Remove';
+                if (isRemoving) {
+                    couponInput.value = '';
+                    couponInput.removeAttribute('disabled');
+                } else {
+                    couponInput.setAttribute('disabled', 'disabled');
+                }
+
+                // Show success message
+                couponMessage.className = 'form-text text-success';
+                couponMessage.textContent = data.message;
             } else {
-                messageDiv.className = 'alert alert-success mt-2';
-                messageDiv.textContent = data.message;
-                
-                // Update cart total
-                document.querySelector('.cart-total').textContent = `$${data.new_total.toFixed(2)}`;
-                
-                // Add discount row
-                const discountRow = document.createElement('div');
-                discountRow.innerHTML = `
-                    <div class="d-flex justify-content-between mb-3">
-                        <span>Discount:</span>
-                        <span class="text-end">-$${data.discount.toFixed(2)}</span>
-                    </div>
-                `;
-                
-                const totalRow = document.querySelector('.d-flex:last-child');
-                totalRow.parentNode.insertBefore(discountRow, totalRow);
+                // Show error message
+                couponMessage.className = 'form-text text-danger';
+                couponMessage.textContent = data.error || 'An error occurred';
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            const messageDiv = document.getElementById('coupon-message');
-            messageDiv.className = 'alert alert-danger mt-2';
-            messageDiv.textContent = 'An error occurred. Please try again.';
+            console.error('Fetch error:', error);
+            couponMessage.className = 'form-text text-danger';
+            couponMessage.textContent = 'An error occurred while processing your request';
         });
+    });
+
+    // Allow Enter key to submit coupon
+    couponInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            applyCouponBtn.click();
+        }
     });
 });
 </script>

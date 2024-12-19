@@ -4,6 +4,7 @@ from app.models.order import Order, OrderItem
 from app.models.cart import Cart
 from app.models.address import Address
 from app.models.shipping import ShippingCarrier, ShippingMethod, ShippingQuote
+from app.models.coupon import Coupon
 from app.shipping.services import BostaShippingService, calculate_shipping_cost
 from app.extensions import db
 from app.order import bp
@@ -44,15 +45,26 @@ def checkout():
         flash('No shipping methods available.', 'error')
         return redirect(url_for('cart.cart'))
     
-    # Apply any discounts from session
-    discount_percent = session.get('discount', 0)
-    discount_amount = (subtotal * discount_percent / 100) if discount_percent > 0 else 0
+    # Get applied coupon from session
+    coupon_code = session.get('coupon_code')
+    discount = 0
+    coupon = None
+    
+    if coupon_code:
+        coupon = Coupon.query.filter_by(code=coupon_code).first()
+        if coupon:
+            if coupon.discount_type == 'percentage':
+                discount = subtotal * (coupon.discount_amount / 100)
+                if coupon.max_discount_amount and discount > coupon.max_discount_amount:
+                    discount = coupon.max_discount_amount
+            else:  # fixed amount
+                discount = min(coupon.discount_amount, subtotal)  # Don't exceed subtotal
     
     # Default shipping cost (will be updated when user selects shipping method)
     shipping_cost = 0.0
     
     # Calculate final total
-    total = subtotal + shipping_cost - discount_amount
+    total = subtotal + shipping_cost - discount
     
     return render_template('order/checkout.html',
                          cart_items=cart_items,
@@ -60,8 +72,8 @@ def checkout():
                          carriers=carriers,
                          subtotal=subtotal,
                          shipping_cost=shipping_cost,
-                         discount_percent=discount_percent,
-                         discount_amount=discount_amount,
+                         coupon=coupon,
+                         discount=discount,
                          total=total)
 
 @bp.route('/calculate-shipping', methods=['POST'])
@@ -121,18 +133,29 @@ def calculate_shipping():
             if shipping_cost is None:
                 return jsonify({'error': 'Could not calculate shipping cost'}), 400
 
-            # Apply any discounts from session
-            discount_percent = session.get('discount', 0)
-            discount_amount = (subtotal * discount_percent / 100) if discount_percent > 0 else 0
+            # Get applied coupon from session
+            coupon_code = session.get('coupon_code')
+            discount = 0
+            coupon = None
+            
+            if coupon_code:
+                coupon = Coupon.query.filter_by(code=coupon_code).first()
+                if coupon:
+                    if coupon.discount_type == 'percentage':
+                        discount = subtotal * (coupon.discount_amount / 100)
+                        if coupon.max_discount_amount and discount > coupon.max_discount_amount:
+                            discount = coupon.max_discount_amount
+                    else:  # fixed amount
+                        discount = min(coupon.discount_amount, subtotal)  # Don't exceed subtotal
             
             # Calculate total
-            total = subtotal + shipping_cost - discount_amount
+            total = subtotal + shipping_cost - discount
             
             return jsonify({
                 'success': True,
                 'shipping_cost': shipping_cost,
                 'subtotal': subtotal,
-                'discount_amount': discount_amount,
+                'discount': discount,
                 'total': total
             })
             
@@ -185,12 +208,23 @@ def process_checkout():
         if method.code == 'express':
             shipping_cost *= 1.5 if carrier.code == 'bosta' else 1.3
         
-        # Apply any discounts from session
-        discount_percent = session.get('discount', 0)
-        discount_amount = (subtotal * discount_percent / 100) if discount_percent > 0 else 0
+        # Get applied coupon from session
+        coupon_code = session.get('coupon_code')
+        discount = 0
+        coupon = None
+        
+        if coupon_code:
+            coupon = Coupon.query.filter_by(code=coupon_code).first()
+            if coupon:
+                if coupon.discount_type == 'percentage':
+                    discount = subtotal * (coupon.discount_amount / 100)
+                    if coupon.max_discount_amount and discount > coupon.max_discount_amount:
+                        discount = coupon.max_discount_amount
+                else:  # fixed amount
+                    discount = min(coupon.discount_amount, subtotal)  # Don't exceed subtotal
         
         # Calculate final total
-        total = subtotal + shipping_cost - discount_amount
+        total = subtotal + shipping_cost - discount
         
         # Create the order
         order = Order(
@@ -203,7 +237,7 @@ def process_checkout():
             payment_status='pending',
             subtotal=subtotal,
             shipping_cost=shipping_cost,
-            discount=discount_amount,
+            discount=discount,
             total=total
         )
         
@@ -277,8 +311,8 @@ def process_checkout():
         for item in cart_items:
             db.session.delete(item)
         
-        # Clear discount from session
-        session.pop('discount', None)
+        # Clear coupon from session
+        session.pop('coupon_code', None)
         
         db.session.commit()
         
@@ -313,9 +347,18 @@ def create_payment():
         # Calculate totals
         subtotal = sum(item.product.price * item.quantity for item in cart_items)
         shipping_cost = 10.0  # Fixed shipping cost
-        discount_percent = session.get('discount', 0)
-        discount_amount = (subtotal * discount_percent / 100)
-        total = subtotal + shipping_cost - discount_amount
+        discount = 0
+        coupon_code = session.get('coupon_code')
+        if coupon_code:
+            coupon = Coupon.query.filter_by(code=coupon_code).first()
+            if coupon:
+                if coupon.discount_type == 'percentage':
+                    discount = subtotal * (coupon.discount_amount / 100)
+                    if coupon.max_discount_amount and discount > coupon.max_discount_amount:
+                        discount = coupon.max_discount_amount
+                else:  # fixed amount
+                    discount = min(coupon.discount_amount, subtotal)  # Don't exceed subtotal
+        total = subtotal + shipping_cost - discount
 
         # Create a PaymentIntent with the order amount and currency
         intent = create_payment_intent(
@@ -360,7 +403,7 @@ def apply_promo():
     
     if promo_code in valid_codes:
         discount = valid_codes[promo_code]
-        session['discount'] = discount
+        session['coupon_code'] = promo_code
         final_total = total - (total * discount / 100)
         return jsonify({
             'success': True,

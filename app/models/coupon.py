@@ -7,7 +7,7 @@ class Coupon(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), unique=True, nullable=False)
-    discount_type = db.Column(db.String(20), nullable=False)  # 'percentage' or 'fixed'
+    discount_type = db.Column(db.String(20), nullable=False)  # 'percentage', 'fixed', or 'free_shipping'
     discount_amount = db.Column(db.Float, nullable=False)
     min_purchase_amount = db.Column(db.Float, default=0.0)
     max_discount_amount = db.Column(db.Float)  # Only for percentage discounts
@@ -23,7 +23,7 @@ class Coupon(db.Model):
                  usage_limit=None):
         self.code = code.upper()
         self.discount_type = discount_type
-        self.discount_amount = discount_amount
+        self.discount_amount = discount_amount if discount_type != 'free_shipping' else 0
         self.min_purchase_amount = min_purchase_amount
         self.max_discount_amount = max_discount_amount
         self.valid_from = valid_from or datetime.utcnow()
@@ -53,9 +53,11 @@ class Coupon(db.Model):
             
         return True, "Coupon is valid"
 
-    def calculate_discount(self, cart_total):
-        """Calculate discount amount based on cart total"""
-        if self.discount_type == 'percentage':
+    def calculate_discount(self, cart_total, shipping_cost=0):
+        """Calculate discount amount based on cart total and shipping cost"""
+        if self.discount_type == 'free_shipping':
+            return shipping_cost
+        elif self.discount_type == 'percentage':
             discount = cart_total * (self.discount_amount / 100)
             if self.max_discount_amount:
                 discount = min(discount, self.max_discount_amount)

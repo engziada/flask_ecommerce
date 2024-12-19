@@ -1,9 +1,10 @@
-from flask import render_template, request, flash, redirect, url_for
+from flask import render_template, request, flash, redirect, url_for, jsonify
 from flask_login import login_required, current_user
 from app.models.product import Product
 from app.models.category import Category
 from app.models.user import User
 from app.models.order import Order
+from app.models.coupon import Coupon
 from app.extensions import db, csrf
 from functools import wraps
 import os
@@ -49,7 +50,7 @@ def products():
     products = Product.query.paginate(page=page, per_page=20, error_out=False)
     return render_template('admin/products.html', products=products)
 
-@bp.route('/product/new', methods=['GET', 'POST'])
+@bp.route('/products/new', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def new_product():
@@ -86,7 +87,7 @@ def new_product():
 
     return render_template('admin/product_form.html', form=form)
 
-@bp.route('/product/<int:product_id>/edit', methods=['GET', 'POST'])
+@bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def edit_product(product_id):
@@ -113,7 +114,7 @@ def edit_product(product_id):
 
     return render_template('admin/product_form.html', form=form, product=product)
 
-@bp.route('/product/<int:product_id>/delete', methods=['POST'])
+@bp.route('/products/<int:product_id>/delete', methods=['POST'])
 @login_required
 @admin_required
 def delete_product(product_id):
@@ -145,7 +146,7 @@ def categories():
         
     return render_template('admin/categories.html', categories=categories)
 
-@bp.route('/category/new', methods=['GET', 'POST'])
+@bp.route('/categories/new', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def new_category():
@@ -162,7 +163,7 @@ def new_category():
         return redirect(url_for('admin.categories'))
     return render_template('admin/category_form.html', form=form)
 
-@bp.route('/category/<int:category_id>/edit', methods=['GET', 'POST'])
+@bp.route('/categories/<int:category_id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def edit_category(category_id):
@@ -177,7 +178,7 @@ def edit_category(category_id):
         return redirect(url_for('admin.categories'))
     return render_template('admin/category_form.html', category=category, form=form)
 
-@bp.route('/category/<int:category_id>/delete', methods=['POST'])
+@bp.route('/categories/<int:category_id>/delete', methods=['POST'])
 @login_required
 @admin_required
 def delete_category(category_id):
@@ -260,7 +261,7 @@ def users():
     users = User.query.paginate(page=page, per_page=20, error_out=False)
     return render_template('admin/users.html', users=users)
 
-@bp.route('/user/<int:user_id>/toggle-admin', methods=['POST'])
+@bp.route('/users/<int:user_id>/toggle-admin', methods=['POST'])
 @login_required
 @admin_required
 @csrf.exempt
@@ -283,3 +284,106 @@ def toggle_admin(user_id):
     full_name = f"{user.first_name} {user.last_name}" if user.first_name and user.last_name else user.email
     flash(f"{'Removed admin status from' if not user.is_admin else 'Made'} {full_name} {'an admin' if user.is_admin else ''} successfully!", 'success')
     return redirect(url_for('admin.users'))
+
+@bp.route('/coupons')
+@login_required
+@admin_required
+def coupons():
+    """Coupon management page"""
+    coupons = Coupon.query.all()
+    return render_template('admin/coupons.html', coupons=[c.to_dict() for c in coupons])
+
+@bp.route('/api/coupons', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def manage_coupons():
+    """Manage coupons - list, create"""
+    if request.method == 'POST':
+        try:
+            data = request.get_json()
+            
+            # Validate input
+            if not data.get('code'):
+                return jsonify({'success': False, 'error': 'Coupon code is required'})
+                
+            if not data.get('discount_type') in ['percentage', 'fixed', 'free_shipping']:
+                return jsonify({'success': False, 'error': 'Invalid discount type'})
+            
+            # Create new coupon
+            coupon = Coupon(
+                code=data['code'],
+                discount_type=data['discount_type'],
+                discount_amount=float(data.get('discount_amount', 0)),
+                min_purchase_amount=float(data.get('min_purchase_amount', 0)),
+                max_discount_amount=float(data.get('max_discount_amount')) if data.get('max_discount_amount') else None,
+                valid_from=datetime.fromisoformat(data['valid_from']) if data.get('valid_from') else None,
+                valid_until=datetime.fromisoformat(data['valid_until']) if data.get('valid_until') else None,
+                usage_limit=int(data['usage_limit']) if data.get('usage_limit') else None
+            )
+            db.session.add(coupon)
+            db.session.commit()
+            return jsonify({'success': True})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': str(e)})
+            
+    # GET request - return all coupons
+    coupons = Coupon.query.all()
+    return jsonify([c.to_dict() for c in coupons])
+
+@bp.route('/api/coupons/<int:coupon_id>', methods=['PUT', 'DELETE'])
+@login_required
+@admin_required
+def manage_coupon(coupon_id):
+    """Manage single coupon - update, delete"""
+    try:
+        coupon = Coupon.query.get_or_404(coupon_id)
+        
+        if request.method == 'DELETE':
+            db.session.delete(coupon)
+            db.session.commit()
+            return jsonify({'success': True})
+            
+        # PUT request
+        data = request.get_json()
+        
+        # Validate input
+        if not data.get('code'):
+            return jsonify({'success': False, 'error': 'Coupon code is required'})
+            
+        if not data.get('discount_type') in ['percentage', 'fixed', 'free_shipping']:
+            return jsonify({'success': False, 'error': 'Invalid discount type'})
+            
+        # Check if the new code already exists (excluding current coupon)
+        existing_coupon = Coupon.query.filter(
+            Coupon.code == data['code'].upper(),
+            Coupon.id != coupon_id
+        ).first()
+        if existing_coupon:
+            return jsonify({'success': False, 'error': 'A coupon with this code already exists'})
+            
+        if data['discount_type'] != 'free_shipping':
+            try:
+                discount_amount = float(data.get('discount_amount', 0))
+                if data['discount_type'] == 'percentage' and (discount_amount <= 0 or discount_amount > 100):
+                    return jsonify({'success': False, 'error': 'Percentage discount must be between 0 and 100'})
+                elif data['discount_type'] == 'fixed' and discount_amount <= 0:
+                    return jsonify({'success': False, 'error': 'Fixed discount amount must be greater than 0'})
+            except ValueError:
+                return jsonify({'success': False, 'error': 'Invalid discount amount'})
+        
+        # Update coupon
+        coupon.code = data['code']
+        coupon.discount_type = data['discount_type']
+        coupon.discount_amount = float(data.get('discount_amount', 0))
+        coupon.min_purchase_amount = float(data.get('min_purchase_amount', 0))
+        coupon.max_discount_amount = float(data.get('max_discount_amount')) if data.get('max_discount_amount') else None
+        coupon.valid_from = datetime.fromisoformat(data['valid_from']) if data.get('valid_from') else None
+        coupon.valid_until = datetime.fromisoformat(data['valid_until']) if data.get('valid_until') else None
+        coupon.usage_limit = int(data['usage_limit']) if data.get('usage_limit') else None
+        
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
