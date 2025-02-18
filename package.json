@@ -1,0 +1,18 @@
+{
+  "name": "flask_ecommerce",
+  "version": "1.0.0",
+  "description": "A sophisticated e-commerce platform specializing in women's jewelry, luxury handbags, and fashion accessories, built with Flask and featuring a modern, elegant design.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "sass": "^1.83.4"
+  }
+}

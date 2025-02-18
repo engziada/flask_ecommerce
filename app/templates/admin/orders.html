@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Order Management{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <h2 class="mb-4"><i class="bi bi-clipboard-check"></i> Orders Management</h2>
+    
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th><i class="bi bi-hash"></i> Order ID</th>
+                    <th><i class="bi bi-person"></i> Customer</th>
+                    <th><i class="bi bi-calendar3"></i> Date</th>
+                    <th><i class="bi bi-currency-dollar"></i> Total</th>
+                    <th><i class="bi bi-info-circle"></i> Status</th>
+                    <th><i class="bi bi-credit-card"></i> Payment</th>
+                    <th><i class="bi bi-gear"></i> Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>#{{ order.id }}</td>
+                    <td><i class="bi bi-envelope"></i> {{ order.user.email }}</td>
+                    <td><i class="bi bi-clock"></i> {{ order.date_created.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>EGP {{ "%.2f"|format(order.total) }}</td>
+                    <td><span class="order-status status-{{ order.status.lower() }}">{{ order.status }}</span></td>
+                    <td>
+                        <span class="order-status status-{{ order.payment_status.lower() }}">{{ order.payment_status }}</span>
+                        <small class="d-block text-muted">
+                            {% if order.payment_method == 'cod' %}
+                                <i class="bi bi-cash"></i> Cash on Delivery
+                            {% else %}
+                                <i class="bi bi-credit-card"></i> Card Payment
+                            {% endif %}
+                        </small>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-eye"></i> View Details
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center">
+                        <i class="bi bi-inbox display-4 text-muted"></i>
+                        <p class="mt-2">No orders found.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if orders.pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if not orders.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('admin.orders', page=orders.prev_num) if orders.has_prev else '#' }}">Previous</a>
+            </li>
+            {% for page_num in orders.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                {% if page_num %}
+                    <li class="page-item {% if page_num == orders.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin.orders', page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not orders.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('admin.orders', page=orders.next_num) if orders.has_next else '#' }}">Next</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

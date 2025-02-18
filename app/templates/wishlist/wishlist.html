@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}My Wishlist{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">My Wishlist</h2>
+
+    {% if wishlist_items %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for item in wishlist_items %}
+        <div class="col">
+            <div class="card h-100 product-card" id="wishlist-item-{{ item.product.id }}">
+                <div class="product-image-container">
+                    {% if item.product.images %}
+                    {% set images = item.product.images.all() %}
+                    <div id="wishlistCarousel{{ item.product.id }}" class="carousel slide" data-bs-ride="carousel">
+                        <div class="carousel-inner">
+                            {% for image in images %}
+                            <div class="carousel-item {% if loop.first %}active{% endif %}">
+                                <img src="{{ image.image_url }}" 
+                                     class="d-block w-100 product-image" 
+                                     alt="{{ item.product.name }}">
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if images|length > 1 %}
+                        <button class="carousel-control-prev overlay-control" type="button" data-bs-target="#wishlistCarousel{{ item.product.id }}" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Previous</span>
+                        </button>
+                        <button class="carousel-control-next overlay-control" type="button" data-bs-target="#wishlistCarousel{{ item.product.id }}" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Next</span>
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="no-image-placeholder">
+                        <i class="bi bi-image text-muted"></i>
+                        <p class="mt-2">No image available</p>
+                    </div>
+                    {% endif %}
+                    
+                    <button onclick="toggleWishlist({{ item.product.id }})" 
+                            class="btn btn-light position-absolute top-0 end-0 m-2 rounded-circle p-2 text-danger">
+                        <i class="bi bi-heart-fill"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.product.name }}</h5>
+                    <p class="card-text">{{ item.product.description[:100] }}{% if item.product.description|length > 100 %}...{% endif %}</p>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="h5 mb-0">EGP {{ "%.2f"|format(item.product.price) }}</span>
+                        {% if item.product.stock > 0 %}
+                        <span class="badge bg-success">In Stock</span>
+                        {% else %}
+                        <span class="badge bg-danger">Out of Stock</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex gap-2">
+                        <button onclick="showProductQuickView({{ item.product.id }})" 
+                                class="btn btn-outline-primary flex-grow-1">
+                            <i class="bi bi-eye"></i> Quick View
+                        </button>
+                        {% if item.product.stock > 0 %}
+                        <button onclick="addToCart({{ item.product.id }})" 
+                                class="btn btn-primary">
+                            <i class="bi bi-cart-plus"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-heart text-muted icon-4x"></i>
+        <h4 class="text-muted mt-3">Your wishlist is empty</h4>
+        <p class="mb-4">Save items you like by clicking the heart icon on product pages!</p>
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+            <i class="bi bi-shop"></i> Browse Products
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{% include 'includes/_product_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleWishlist(productId) {
+    fetch(`/wishlist/toggle/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`wishlist-item-${productId}`).remove();
+            if (document.querySelectorAll('.card').length === 0) {
+                location.reload();
+            }
+            // Update wishlist count in header
+            const wishlistTotal = document.getElementById('wishlist-total');
+            if (wishlistTotal) {
+                if (data.wishlist_total > 0) {
+                    wishlistTotal.textContent = data.wishlist_total;
+                } else {
+                    wishlistTotal.remove();
+                }
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error updating wishlist');
+    });
+}
+
+function addToCart(productId) {
+    fetch(`/cart/add/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Product added to cart');
+            // Update cart count in header
+            const cartTotal = document.getElementById('cart-total');
+            if (cartTotal) {
+                cartTotal.textContent = data.cart_total;
+            }
+        } else {
+            showToast(data.message || 'Error adding to cart');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error adding to cart');
+    });
+}
+</script>
+{% endblock %}

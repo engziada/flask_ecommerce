@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block head %}
+{{ super() }}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% endblock %}
+
+{% block content %}
+<div class="admin-content">
+    {% block admin_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+// Listen for flash message events
+window.addEventListener('flash-message', function(event) {
+    const { message, category } = event.detail;
+    // Create flash message element
+    const flashDiv = document.createElement('div');
+    flashDiv.className = `alert alert-${category} alert-dismissible fade show`;
+    flashDiv.role = 'alert';
+    flashDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    // Add to flash container
+    const flashContainer = document.getElementById('flash-messages');
+    if (flashContainer) {
+        flashContainer.appendChild(flashDiv);
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            flashDiv.remove();
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

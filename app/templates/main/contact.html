@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Us{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Welcome Section -->
+            <div class="text-center mb-5">
+                <h2>Get in Touch</h2>
+                <p class="lead">We'd Love to Hear From You</p>
+            </div>
+            
+            <!-- Contact Details Section -->
+            <section class="contact-section contact-details">
+                <div class="contact-section-content">
+                    <h3>Contact Information</h3>
+                    <div class="contact-info">
+                        <p>
+                            <strong>Customer Support</strong><br>
+                            Email: elite.mai.ziada@gmail.com<br>
+                            WhatsApp: (+20) 1063461453<br>
+                            Phone: (+20) 1055341590
+
+                        </p>
+                        
+                        <!-- <p>
+                            <strong>Business Hours</strong><br>
+                            Monday - Friday: 9:00 AM - 6:00 PM<br>
+                            Saturday: 10:00 AM - 4:00 PM<br>
+                            Sunday: Closed
+                        </p> -->
+                        
+                        <p>
+                            <strong>Location</strong><br>
+                            <!-- 123 Elite Street<br> -->
+                            Ismailia, Egypt<br>
+                        </p>
+                        
+                        <div class="social-links">
+                            <a href="https://www.facebook.com/share/18haNv4TLF/" title="Facebook"><i class="fab fa-facebook"></i></a>
+                            <a href="https://www.tiktok.com/@elite_by_mai_ziada?_t=ZS-8tyZj4Jptx9&_r=1" title="TikTok"><i class="fab fa-tiktok"></i></a>
+                            <a href="https://www.instagram.com/elite_by_mai_ziada?igsh=NDM0ZTlteXViM3E5" title="Instagram"><i class="fab fa-instagram"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Message Form Section -->
+            <section class="contact-section message-form">
+                <div class="contact-section-content">
+                    <h3>Send us a Message</h3>
+                    <div class="contact-form">
+                        <form method="POST">
+                            {{ form.csrf_token }}
+                            <div class="mb-3">
+                                <label for="name" class="form-label">{{ form.name.label }}</label>
+                                {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}
+                                {% if form.name.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.name.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="email" class="form-label">{{ form.email.label }}</label>
+                                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else "")) }}
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.email.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="subject" class="form-label">{{ form.subject.label }}</label>
+                                {{ form.subject(class="form-control" + (" is-invalid" if form.subject.errors else "")) }}
+                                {% if form.subject.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.subject.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="message" class="form-label">{{ form.message.label }}</label>
+                                {{ form.message(class="form-control" + (" is-invalid" if form.message.errors else ""), rows="5") }}
+                                {% if form.message.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.message.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <button type="submit" class="btn btn-primary">Send Message</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

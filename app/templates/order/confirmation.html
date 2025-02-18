@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="fas fa-check-circle me-2"></i>Order Confirmed!</h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                        <h5 class="mt-3">Thank you for your order!</h5>
+                        <p class="text-muted">Order #{{ order.id }}</p>
+                    </div>
+
+                    <div class="order-details">
+                        <h5 class="mb-3">Order Details</h5>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Quantity</th>
+                                        <th class="text-end">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in order.items %}
+                                    <tr>
+                                        <td>{{ item.ordered_product.name }}</td>
+                                        <td>{{ item.quantity }}</td>
+                                        <td class="text-end">EGP {{ "%.2f"|format(item.price) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr>
+                                        <td colspan="2" class="text-end"><strong>Subtotal:</strong></td>
+                                        <td class="text-end">EGP {{ "%.2f"|format(order.subtotal) }}</td>
+                                    </tr>
+                                    {% if order.discount > 0 %}
+                                    <tr>
+                                        <td colspan="2" class="text-end text-success"><strong>Discount:</strong></td>
+                                        <td class="text-end text-success">-EGP {{ "%.2f"|format(order.discount) }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    <tr>
+                                        <td colspan="2" class="text-end"><strong>Shipping:</strong></td>
+                                        <td class="text-end">EGP {{ "%.2f"|format(order.shipping_cost) }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2" class="text-end"><strong>Total:</strong></td>
+                                        <td class="text-end"><strong>EGP {{ "%.2f"|format(order.total) }}</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="shipping-details mt-4">
+                        <h5 class="mb-3">Shipping Details</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                <p class="mb-1"><strong>{{ order.shipping_address.name }}</strong></p>
+                                <p class="mb-1">{{ order.shipping_address.street }}</p>
+                                {% if order.shipping_address.building_number %}
+                                <p class="mb-1">Building {{ order.shipping_address.building_number }}</p>
+                                {% endif %}
+                                {% if order.shipping_address.floor or order.shipping_address.apartment %}
+                                <p class="mb-1">
+                                    {% if order.shipping_address.floor %}Floor {{ order.shipping_address.floor }}{% endif %}
+                                    {% if order.shipping_address.apartment %}, Apartment {{ order.shipping_address.apartment }}{% endif %}
+                                </p>
+                                {% endif %}
+                                <p class="mb-1">{{ order.shipping_address.city }}</p>
+                                {% if order.shipping_address.district %}
+                                <p class="mb-1">{{ order.shipping_address.district }}</p>
+                                {% endif %}
+                                <p class="mb-1">Phone: {{ order.shipping_address.phone }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <p class="text-muted mb-3">We'll send you shipping confirmation when your order ships.</p>
+                        <a href="{{ url_for('order.orders') }}" class="btn btn-primary">View All Orders</a>
+                        <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary ms-2">Continue Shopping</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

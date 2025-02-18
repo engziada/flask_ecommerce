@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/loading-overlay.css') }}">
+{% endblock %}
+
+{% block content %}
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="text-center">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Calculating shipping cost...</div>
+    </div>
+</div>
+
+<div class="container py-4">
+    <h1 class="mb-4">Checkout</h1>
+
+    <div class="row">
+        <!-- Order Summary -->
+        <div class="col-md-4 order-md-2 mb-4">
+            <h4 class="d-flex justify-content-between align-items-center mb-3">
+                <span class="text-primary">Your Cart</span>
+                <span class="badge bg-primary rounded-pill">{{ cart_items|length }}</span>
+            </h4>
+            <ul class="list-group mb-3">
+                {% for item in cart_items %}
+                <li class="list-group-item d-flex justify-content-between lh-sm">
+                    <div>
+                        <h6 class="my-0">{{ item.product.name }}</h6>
+                        <small class="text-muted">Quantity: {{ item.quantity }}</small>
+                    </div>
+                    <span class="text-muted">EGP {{ "%.2f"|format(item.product.price * item.quantity) }}</span>
+                </li>
+                {% endfor %}
+
+                {% if coupon %}
+                <li class="list-group-item d-flex justify-content-between bg-light">
+                    <div class="text-success">
+                        <h6 class="my-0">Coupon Applied</h6>
+                        <small>{{ coupon.code }} 
+                            {% if coupon.discount_type == 'percentage' %}
+                            ({{ coupon.discount_amount }}% off)
+                            {% else %}
+                            (EGP {{ "%.2f"|format(coupon.discount_amount) }} off)
+                            {% endif %}
+                        </small>
+                    </div>
+                    <span class="text-success">-EGP {{ "%.2f"|format(discount) }}</span>
+                </li>
+                {% endif %}
+
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Subtotal</span>
+                    <strong>EGP {{ "%.2f"|format(subtotal) }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Shipping Cost</span>
+                    <span id="shipping-cost">EGP 0.00</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Total (EGP)</span>
+                    <strong id="total-amount">EGP {{ "%.2f"|format(total) }}</strong>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Checkout Form -->
+        <div class="col-md-8 order-md-1">
+            <form id="payment-form" method="POST" action="{{ url_for('order.process_checkout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" id="payment_intent_id" name="payment_intent_id">
+
+                <h4 class="mb-3">Shipping Address</h4>
+                <div class="mb-3">
+                    {% if addresses %}
+                        <div class="mb-3">
+                            <select class="form-select" id="shipping_address" name="shipping_address_id" required>
+                                <option value="">Choose shipping address...</option>
+                                {% for address in addresses %}
+                                <option value="{{ address.id }}">
+                                    {{ address.street }}, {{ address.city }}, {{ address.postal_code }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <!-- Hidden fields for carrier and method -->
+                        <input type="hidden" name="carrier_id" value="{{ carriers[0].id if carriers else '' }}">
+                        <input type="hidden" name="method_id" value="{{ carriers[0].shipping_methods[0].id if carriers and carriers[0].shipping_methods else '' }}">
+                    {% else %}
+                        <p>No shipping addresses found.</p>
+                    {% endif %}
+                    <div class="mt-2">
+                        <a href="{{ url_for('address.add_address', next=url_for('order.checkout')) }}" class="btn btn-outline-primary">Add New Address</a>
+                    </div>
+                </div>
+
+                <hr class="mb-4">
+
+                <!-- Payment Method -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Payment Method</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="payment_method" id="cod_payment" value="cod" checked>
+                            <label class="form-check-label" for="cod_payment">
+                                <i class="fas fa-money-bill-wave me-2"></i>Cash on Delivery
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" id="card_payment" value="card">
+                            <label class="form-check-label" for="card_payment">
+                                <i class="fas fa-credit-card me-2"></i>Credit Card
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PayMob Payment Frame -->
+                <div id="card-element-container" style="display: none;">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Card Payment</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="paymob-payment-frame" style="width: 100%; min-height: 400px;"></div>
+                            <div id="payment-errors" role="alert" class="text-danger mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-lg btn-block w-100" type="submit">Place Order</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addressSelect = document.getElementById('shipping_address');
+        const paymentMethodInputs = document.querySelectorAll('input[name="payment_method"]');
+        const paymentForm = document.getElementById('payment-form');
+        const cardElementContainer = document.getElementById('card-element-container');
+        const paymobFrame = document.getElementById('paymob-payment-frame');
+        let paymentFrameLoaded = false;
+        let shippingCostCalculated = false;
+        let paymentUrl = null;
+
+        // Listen for PayMob messages
+        window.addEventListener('message', function(event) {
+            // Verify the origin
+            if (event.origin !== 'https://accept.paymob.com') return;
+            
+            console.log('Received message from PayMob:', event.data);
+            
+            if (event.data.type === 'PAYMENT_RESULT') {
+                const success = event.data.success === true;
+                const orderId = event.data.order;
+                const transactionId = event.data.id;
+                
+                // Send result to our server
+                fetch('{{ url_for("order.paymob_callback") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        success: success,
+                        order: orderId,
+                        transaction_id: transactionId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.redirect_url;
+                    } else {
+                        document.getElementById('payment-errors').textContent = data.error || 'Payment failed';
+                        document.getElementById('cod_payment').checked = true;
+                        cardElementContainer.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('payment-errors').textContent = 'Payment system error. Please try again.';
+                    document.getElementById('cod_payment').checked = true;
+                    cardElementContainer.style.display = 'none';
+                });
+            }
+        });
+
+        // Show/hide payment frame based on payment method
+        paymentMethodInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                if (this.value === 'card') {
+                    cardElementContainer.style.display = 'block';
+                    if (!paymentFrameLoaded) {
+                        // First ensure shipping address is selected
+                        const selectedAddress = addressSelect.value;
+                        if (!selectedAddress) {
+                            alert('Please select a shipping address first');
+                            document.getElementById('cod_payment').checked = true;
+                            cardElementContainer.style.display = 'none';
+                            return;
+                        }
+                        // Initialize PayMob frame
+                        initializePayMobFrame();
+                    }
+                } else {
+                    cardElementContainer.style.display = 'none';
+                }
+            });
+        });
+
+        // Initialize PayMob payment frame
+        function initializePayMobFrame() {
+            if (paymentFrameLoaded) return;
+            
+            const loadingHTML = '<div class="text-center p-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Loading payment form...</p></div>';
+            paymobFrame.innerHTML = loadingHTML;
+            
+            fetch('{{ url_for("order.process_paymob_payment") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    order_id: '{{ order.id }}'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Load PayMob iframe
+                    paymobFrame.innerHTML = `<iframe 
+                        src="https://accept.paymob.com/api/acceptance/iframes/${data.iframe_id}?payment_token=${data.payment_key}"
+                        width="100%"
+                        height="400px"
+                        style="border: none;"
+                        allow="payment"
+                        frameborder="0"
+                    ></iframe>`;
+                    paymentFrameLoaded = true;
+                } else {
+                    throw new Error(data.error || 'Payment initialization failed');
+                }
+            })
+            .catch(error => {
+                document.getElementById('payment-errors').textContent = error.message || 'Payment system error. Please try again.';
+                document.getElementById('cod_payment').checked = true;
+                cardElementContainer.style.display = 'none';
+                console.error('Payment error:', error);
+            });
+        }
+
+        // Handle shipping address change
+        addressSelect.addEventListener('change', function() {
+            // Reset payment frame if address changes
+            paymentFrameLoaded = false;
+            if (document.getElementById('card_payment').checked) {
+                initializePayMobFrame();
+            }
+        });
+
+        // Update shipping cost when address or payment method changes
+        async function updateShippingCost() {
+            if (!addressSelect.value) {
+                return;
+            }
+
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+            shippingCostCalculated = false;
+
+            try {
+                const response = await fetch('{{ url_for("shipping.calculate_cost") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        address_id: addressSelect.value,
+                        carrier_code: 'bosta',  // Using Bosta as default carrier
+                        payment_method: document.querySelector('input[name="payment_method"]:checked').value,
+                        total: {{ subtotal }} - {{ discount }}  // Pass current total for COD calculation
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to calculate shipping cost');
+                }
+                
+                if (!Array.isArray(data) || data.length === 0) {
+                    throw new Error('No shipping quotes available for the selected address');
+                }
+                
+                // Get the first available shipping quote
+                const quote = data[0];
+                
+                // Update shipping cost display
+                const shippingCostElement = document.getElementById('shipping-cost');
+                const totalElement = document.getElementById('total-amount');
+                const subtotal = {{ subtotal }};
+                const discount = {{ discount }};
+                
+                shippingCostElement.textContent = `EGP ${quote.cost.toFixed(2)}`;
+                const total = subtotal + quote.cost - discount;
+                totalElement.textContent = `EGP ${total.toFixed(2)}`;
+                
+                // Update payment intent with new total
+                if (document.querySelector('input[name="payment_method"]:checked').value === 'card') {
+                    // Update payment frame with new total
+                    if (paymentUrl) {
+                        paymobFrame.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Loading payment form...</p></div>';
+                        initializePayMobFrame();
+                    }
+                }
+                shippingCostCalculated = true;
+            } catch (error) {
+                console.error('Error calculating shipping cost:', error);
+                // Show the actual error message from the API if available
+                alert(error.message || 'Error calculating shipping cost. Please try again.');
+                shippingCostCalculated = false;
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        // Prevent form submission if shipping cost hasn't been calculated
+        paymentForm.addEventListener('submit', function(event) {
+            if (!shippingCostCalculated) {
+                event.preventDefault();
+                alert('Please wait for shipping cost calculation to complete.');
+            }
+        });
+
+        // Event listeners
+        addressSelect.addEventListener('change', updateShippingCost);
+        paymentMethodInputs.forEach(input => {
+            input.addEventListener('change', () => {
+                const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked');
+                if (selectedPaymentMethod) {
+                    cardElementContainer.style.display = selectedPaymentMethod.value === 'card' ? 'block' : 'none';
+                    // Recalculate shipping when payment method changes
+                    if (addressSelect.value) {
+                        updateShippingCost();
+                    }
+                }
+            });
+        });
+
+        // Initial shipping cost calculation if address is pre-selected
+        if (addressSelect.value) {
+            updateShippingCost();
+        }
+    });
+</script>
+{% endblock %}

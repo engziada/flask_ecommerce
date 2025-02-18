@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Flask
+.webassets-cache
+
+# Environment Variables
+.env
+
+# Logs
+*.log
+logs/*
+
+# Media
+app/static/uploads/
+
+# Database
+*.sqlite
+*.db
+instance/*
+
+
+# windsurf rules
+.windsurfrules
+
+# Ignore local uploads but keep the directory
+app/static/uploads/*
+!app/static/uploads/.gitkeep

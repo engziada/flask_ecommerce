@@ -1,0 +1,214 @@
+<!-- Product Quick View Modal -->
+<div class="modal fade" id="productQuickView" tabindex="-1" aria-labelledby="productQuickViewLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productQuickViewLabel">Product Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <div class="product-gallery">
+                            <!-- Main Image -->
+                            <div class="main-image-container mb-3" id="modalProductImage">
+                                <!-- Main image will be inserted here -->
+                            </div>
+                            
+                            <!-- Thumbnail Images -->
+                            <div class="thumbnail-container">
+                                <div class="row g-2" id="modalProductThumbnails">
+                                    <!-- Thumbnails will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h4 id="modalProductName"></h4>
+                        <p class="text-muted mb-2" id="modalProductCategory"></p>
+                        <div class="mb-3">
+                            <h5 class="text-primary" id="modalProductPrice"></h5>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if is_admin() %}
+                                <span class="text-muted" id="modalProductStock"></span>
+                                {% endif %}
+                                <span id="modalProductStockBadge"></span>
+                            </div>
+                        </div>
+                        <p id="modalProductDescription"></p>
+                        <div class="d-flex gap-2" id="modalProductActions">
+                            <!-- Action buttons will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for handling product quick view -->
+<script>
+function showProductQuickView(productId) {
+    fetch(`/api/product/${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const product = data.product;
+                
+                // Update modal title
+                document.getElementById('productQuickViewLabel').textContent = product.name;
+                
+                // Update product details
+                document.getElementById('modalProductName').textContent = product.name;
+                document.getElementById('modalProductCategory').textContent = product.category_name;
+                document.getElementById('modalProductPrice').textContent = `EGP ${product.price.toFixed(2)}`;
+                document.getElementById('modalProductDescription').textContent = product.description;
+                
+                // Update stock information
+                if (document.getElementById('modalProductStock')) {
+                    document.getElementById('modalProductStock').textContent = `Stock: ${product.stock}`;
+                }
+                
+                const stockBadge = document.getElementById('modalProductStockBadge');
+                if (product.stock > 0) {
+                    stockBadge.className = 'badge bg-success';
+                    stockBadge.textContent = 'In Stock';
+                } else {
+                    stockBadge.className = 'badge bg-danger';
+                    stockBadge.textContent = 'Out of Stock';
+                }
+                
+                // Update product images
+                const mainImageContainer = document.getElementById('modalProductImage');
+                const thumbnailContainer = document.getElementById('modalProductThumbnails');
+                
+                // Clear existing images
+                mainImageContainer.innerHTML = '';
+                thumbnailContainer.innerHTML = '';
+                
+                if (product.images && product.images.length > 0) {
+                    // Find primary image
+                    const primaryImage = product.images.find(img => img.is_primary) || product.images[0];
+                    
+                    // Set main image
+                    mainImageContainer.innerHTML = `
+                        <img src="${primaryImage.image_url}" 
+                             class="img-fluid main-image" 
+                             alt="${product.name}"
+                             id="modalMainImage">
+                    `;
+                    
+                    // Add thumbnails if there are multiple images
+                    if (product.images.length > 1) {
+                        product.images.forEach(image => {
+                            const thumbCol = document.createElement('div');
+                            thumbCol.className = 'col-3';
+                            thumbCol.innerHTML = `
+                                <img src="${image.image_url}" 
+                                     class="img-fluid thumbnail${image.is_primary ? ' active' : ''}" 
+                                     alt="${product.name}"
+                                     onclick="changeModalImage(this.src)">
+                            `;
+                            thumbnailContainer.appendChild(thumbCol);
+                        });
+                    }
+                } else {
+                    // Show placeholder if no images
+                    mainImageContainer.innerHTML = `
+                        <div class="bg-light rounded text-center py-5">
+                            <i class="bi bi-image text-muted" style="font-size: 6rem;"></i>
+                        </div>
+                    `;
+                }
+                
+                // Update actions
+                const actionsContainer = document.getElementById('modalProductActions');
+                if (product.stock > 0) {
+                    actionsContainer.innerHTML = `
+                        <div class="input-group" style="width: 140px;">
+                            <button class="btn btn-outline-secondary" type="button" onclick="updateModalQuantity(-1)">-</button>
+                            <input type="number" class="form-control text-center" id="modalQuantity" value="1" min="1" max="${product.stock}">
+                            <button class="btn btn-outline-secondary" type="button" onclick="updateModalQuantity(1)">+</button>
+                        </div>
+                        <button onclick="addToCartFromModal(${product.id})" class="btn btn-primary">
+                            <i class="bi bi-cart-plus"></i> Add to Cart
+                        </button>
+                    `;
+                } else {
+                    actionsContainer.innerHTML = `
+                        <button class="btn btn-secondary" disabled>Out of Stock</button>
+                    `;
+                }
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('productQuickView'));
+                modal.show();
+            }
+        });
+}
+
+function updateModalQuantity(change) {
+    const input = document.getElementById('modalQuantity');
+    const currentValue = parseInt(input.value) || 1;
+    const newValue = currentValue + change;
+    
+    if (newValue >= 1 && newValue <= parseInt(input.max)) {
+        input.value = newValue;
+    }
+}
+
+function changeModalImage(src) {
+    const mainImage = document.getElementById('modalMainImage');
+    if (mainImage) {
+        mainImage.src = src;
+    }
+    
+    // Update thumbnails active state
+    document.querySelectorAll('#modalProductThumbnails .thumbnail').forEach(thumb => {
+        if (thumb.src === src) {
+            thumb.classList.add('active');
+        } else {
+            thumb.classList.remove('active');
+        }
+    });
+}
+
+function addToCartFromModal(productId) {
+    const quantity = document.getElementById('modalQuantity').value;
+    addToCart(productId, quantity);
+}
+</script>
+
+<style>
+.product-gallery {
+    position: relative;
+}
+
+.main-image-container {
+    position: relative;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.main-image {
+    width: 100%;
+    height: 300px;
+    object-fit: contain;
+}
+
+.thumbnail {
+    cursor: pointer;
+    transition: opacity 0.2s;
+    height: 60px;
+    object-fit: cover;
+}
+
+.thumbnail:hover {
+    opacity: 0.8;
+}
+
+.thumbnail.active {
+    border: 2px solid var(--bs-primary);
+}
+</style>

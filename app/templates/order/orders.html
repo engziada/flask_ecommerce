@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block title %}<i class="bi bi-bag-check"></i> My Orders{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <h2 class="mb-4"><i class="bi bi-bag-check"></i> My Orders</h2>
+    
+    {% if orders %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th><i class="bi bi-hash"></i> Order ID</th>
+                    <th><i class="bi bi-calendar3"></i> Date</th>
+                    <th><i class="bi bi-currency-dollar"></i> Total</th>
+                    <th><i class="bi bi-info-circle"></i> Status</th>
+                    <th><i class="bi bi-credit-card"></i> Payment</th>
+                    <th><i class="bi bi-gear"></i> Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>#{{ order.id }}</td>
+                    <td><i class="bi bi-clock"></i> {{ order.date_created.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>EGP {{ "%.2f"|format(order.total) }}</td>
+                    <td><span class="badge bg-{{ order.status_color }}">{{ order.status }}</span></td>
+                    <td>
+                        <span class="badge bg-{{ order.payment_status_color }}">{{ order.payment_status }}</span>
+                        <small class="d-block text-muted">
+                            {% if order.payment_method == 'cod' %}
+                                <i class="bi bi-cash"></i> Cash on Delivery
+                            {% else %}
+                                <i class="bi bi-credit-card"></i> Card Payment
+                            {% endif %}
+                        </small>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('order.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-eye"></i> View Details
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center my-5">
+        <i class="bi bi-bag-x display-1 text-muted mb-3"></i>
+        <h3>No orders yet</h3>
+        <p class="text-muted">Start shopping to see your orders here!</p>
+        <a href="{{ url_for('shop.index') }}" class="btn btn-primary">
+            <i class="bi bi-cart"></i> Shop Now
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

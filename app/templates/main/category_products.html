@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.name }} - Products{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ category.name }}</li>
+        </ol>
+    </nav>
+
+    <h1>{{ category.name }}</h1>
+    <p class="lead">{{ category.description }}</p>
+
+    <div class="row mt-4">
+        {% for product in products.items %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 product-card">
+                <div class="product-image-container">
+                    {% if product.images %}
+                    {% set images = product.images.all() %}
+                    <div id="productCarousel{{ product.id }}" class="carousel slide" data-bs-ride="carousel">
+                        <div class="carousel-inner">
+                            {% for image in images %}
+                            <div class="carousel-item {% if loop.first %}active{% endif %}">
+                                <img src="{{ image.image_url }}" 
+                                     class="d-block w-100 product-image" 
+                                     alt="{{ product.name }}">
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if images|length > 1 %}
+                        <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel{{ product.id }}" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Previous</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#productCarousel{{ product.id }}" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Next</span>
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="no-image-placeholder">
+                        <i class="bi bi-image text-muted"></i>
+                        <p class="mt-2">No image available</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if current_user.is_authenticated %}
+                    <button onclick="toggleWishlist({{ product.id }})" 
+                            class="btn btn-light position-absolute top-0 end-0 m-2 rounded-circle p-2 wishlist-btn"
+                            data-product-id="{{ product.id }}">
+                        <i class="bi bi-heart wishlist-icon-{{ product.id }}"></i>
+                    </button>
+                    {% endif %}
+                    
+                    <button onclick="showProductQuickView({{ product.id }})" 
+                            class="btn btn-light position-absolute bottom-0 end-0 m-2 rounded-circle p-2 quick-view-btn"
+                            title="Quick View">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+                
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">{{ product.name }}</h5>
+                    <p class="card-text text-truncate">{{ product.description }}</p>
+                    <p class="card-text"><strong>EGP {{ "%.2f"|format(product.price) }}</strong></p>
+                    
+                    <div class="mt-auto d-flex gap-2 flex-wrap">
+                        {% if product.stock > 0 %}
+                            <span class="badge bg-success">In Stock</span>
+                        {% else %}
+                            <span class="badge bg-danger">Out of Stock</span>
+                        {% endif %}
+                        
+                        <div class="btn-group w-100" role="group">
+                            <a href="{{ url_for('main.product_detail', product_id=product.id) }}" 
+                               class="btn btn-outline-primary">View Details</a>
+                            {% if current_user.is_authenticated and product.stock > 0 %}
+                            <button onclick="addToCart({{ product.id }})" 
+                                    class="btn btn-primary">
+                                <i class="bi bi-cart-plus"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if products.pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if products.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.category_products', category_id=category.id, page=products.prev_num) }}">Previous</a>
+            </li>
+            {% endif %}
+
+            {% for page_num in products.iter_pages(left_edge=2, left_current=2, right_current=2, right_edge=2) %}
+                {% if page_num %}
+                    {% if page_num == products.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.category_products', category_id=category.id, page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if products.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.category_products', category_id=category.id, page=products.next_num) }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.product-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.product-image-container {
+    position: relative;
+    height: 200px;
+    background-color: #f8f9fa;
+    overflow: hidden;
+}
+
+.product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.product-card:hover .product-image {
+    transform: scale(1.05);
+}
+
+.no-image-placeholder {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.no-image-placeholder i {
+    font-size: 3rem;
+}
+
+.wishlist-btn,
+.quick-view-btn {
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 2;
+}
+
+.product-card:hover .wishlist-btn,
+.product-card:hover .quick-view-btn {
+    opacity: 1;
+}
+
+.card-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-text {
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function addToCart(productId) {
+    fetch('/api/cart/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({
+            product_id: productId,
+            quantity: 1
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Product added to cart!', 'success');
+            
+            // Update cart count in navbar
+            const cartCount = document.getElementById('cartCount');
+            if (cartCount) {
+                const currentCount = parseInt(cartCount.textContent) || 0;
+                cartCount.textContent = currentCount + 1;
+            }
+            
+            // Update cart total if available
+            if (data.cart_total) {
+                const cartTotal = document.getElementById('cartTotal');
+                if (cartTotal) {
+                    cartTotal.textContent = `EGP ${data.cart_total.toFixed(2)}`;
+                }
+            }
+        } else {
+            showToast(data.message || 'Failed to add to cart!', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Failed to add to cart!', 'danger');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize wishlist icons
+    document.querySelectorAll('[data-product-id]').forEach(element => {
+        const productId = element.dataset.productId;
+        checkWishlistStatus(productId);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Shopping Cart{% endblock %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Shopping Cart</h1>
+
+    {% if cart_items %}
+    <div class="row">
+        <div class="col-md-8">
+            {% for item in cart_items %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2">
+                            <img src="{{ item.product.image_url }}" class="img-fluid rounded" alt="{{ item.product.name }}">
+                        </div>
+                        <div class="col-md-4">
+                            <h5 class="card-title">{{ item.product.name }}</h5>
+                            <p class="card-text text-muted">EGP {{ "%.2f"|format(item.product.price) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" class="form-control quantity-input" 
+                                   value="{{ item.quantity }}" min="1" max="99" 
+                                   data-item-id="{{ item.id }}"
+                                   data-price="{{ item.product.price }}">
+                        </div>
+                        <div class="col-md-2">
+                            <p class="h5 mb-0 text-end item-total" data-item-id="{{ item.id }}">
+                                EGP {{ "%.2f"|format(item.product.price * item.quantity) }}
+                            </p>
+                        </div>
+                        <div class="col-md-1">
+                            <form action="{{ url_for('cart.remove_from_cart', item_id=item.id) }}" method="post" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-link text-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Order Summary</h5>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">EGP {{ "%.2f"|format(subtotal) }}</span>
+                    </div>
+                    {% if shipping_cost is defined %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Shipping:</span>
+                        <span id="shipping">EGP {{ "%.2f"|format(shipping_cost) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if discount > 0 %}
+                    <div id="discount-row" class="d-flex justify-content-between mb-2">
+                        <span>Discount:</span>
+                        <span id="discount">-EGP {{ "%.2f"|format(discount) }}</span>
+                    </div>
+                    {% endif %}
+                    <hr>
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>Total:</strong>
+                        <strong id="total">EGP {{ "%.2f"|format(total) }}</strong>
+                    </div>
+
+                    <!-- Coupon Code Section -->
+                    <div class="mb-3">
+                        <label for="couponCode" class="form-label">Have a coupon?</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="couponCode" 
+                                   placeholder="Enter coupon code" 
+                                   value="{{ coupon_code if coupon_code else '' }}">
+                            <button class="btn btn-outline-secondary position-relative" type="button" id="applyCoupon">
+                                <span class="button-text">{% if coupon_code %}Remove{% else %}Apply{% endif %}</span>
+                                <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                            </button>
+                        </div>
+                        <div id="couponMessage" class="form-text mt-2"></div>
+                        {% if coupon_code and coupon %}
+                        <div class="coupon-details mt-2 small">
+                            <div class="text-muted">
+                                {% if coupon.valid_until %}
+                                <div>Expires: {{ coupon.valid_until.strftime('%Y-%m-%d') }}</div>
+                                {% endif %}
+                                {% if coupon.min_purchase_amount > 0 %}
+                                <div>Min. Purchase: EGP {{ "%.2f"|format(coupon.min_purchase_amount) }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <a href="{{ url_for('order.checkout') }}" class="btn btn-primary w-100">
+                        Proceed to Checkout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-cart text-muted" style="font-size: 4rem;"></i>
+        <h3 class="mt-3">Your cart is empty</h3>
+        <p class="text-muted">Add items to your cart to see them here.</p>
+        <a href="{{ url_for('shop.index') }}" class="btn btn-primary mt-3">Continue Shopping</a>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const quantityInputs = document.querySelectorAll('.quantity-input');
+    
+    quantityInputs.forEach(input => {
+        input.defaultValue = input.value;
+        
+        // Handle quantity changes
+        input.addEventListener('change', () => {
+            let newValue = parseInt(input.value) || 1;
+            newValue = Math.max(1, Math.min(99, newValue));
+            if (newValue !== parseInt(input.defaultValue)) {
+                const itemId = input.dataset.itemId;
+                updateCartQuantity(itemId, newValue);
+                input.defaultValue = newValue;
+            }
+        });
+        
+        // Prevent non-numeric input
+        input.addEventListener('keypress', (e) => {
+            if (!/[0-9]/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

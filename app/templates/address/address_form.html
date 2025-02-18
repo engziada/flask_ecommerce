@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}{% if address %}Edit{% else %}Add New{% endif %} Address{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{% if address %}Edit{% else %}Add New{% endif %} Address</h2>
+    
+    <form method="POST" class="needs-validation" novalidate>
+        {{ form.csrf_token }}
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                {{ form.name.label(class="form-label") }}
+                {{ form.name(class="form-control", placeholder="Full Name") }}
+                {% if form.name.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.name.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                {{ form.phone.label(class="form-label") }}
+                {{ form.phone(class="form-control", placeholder="Phone Number") }}
+                {% if form.phone.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.phone.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mb-3">
+            {{ form.street.label(class="form-label") }}
+            {{ form.street(class="form-control", placeholder="Street Address") }}
+            {% if form.street.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.street.errors %}
+                <span>{{ error }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                {{ form.building_number.label(class="form-label") }}
+                {{ form.building_number(class="form-control", placeholder="Building Number") }}
+                {% if form.building_number.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.building_number.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-4 mb-3">
+                {{ form.floor.label(class="form-label") }}
+                {{ form.floor(class="form-control", placeholder="Floor") }}
+                {% if form.floor.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.floor.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-4 mb-3">
+                {{ form.apartment.label(class="form-label") }}
+                {{ form.apartment(class="form-control", placeholder="Apartment") }}
+                {% if form.apartment.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.apartment.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                {{ form.city.label(class="form-label") }}
+                {{ form.city(class="form-control") }}
+                {% if form.city.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.city.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-6 mb-3">
+                {{ form.district.label(class="form-label") }}
+                {{ form.district(class="form-control", placeholder="District/Area") }}
+                {% if form.district.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.district.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                {{ form.postal_code.label(class="form-label") }}
+                {{ form.postal_code(class="form-control", placeholder="Postal Code") }}
+                {% if form.postal_code.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.postal_code.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <div class="form-check">
+                {{ form.is_default(class="form-check-input") }}
+                {{ form.is_default.label(class="form-check-label") }}
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Address</button>
+        <a href="{{ url_for('address.addresses') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
