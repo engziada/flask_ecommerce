@@ -39,8 +39,8 @@ class User(UserMixin, db.Model):
     
     def set_password(self, password):
         """Set the user's password with complexity validation."""
-        if len(password) < 12:
-            raise ValueError("Password must be at least 12 characters")
+        if len(password) < 8:
+            raise ValueError("Password must be at least 8 characters")
         if not any(c.isupper() for c in password):
             raise ValueError("Password must contain at least one uppercase letter")
         if not any(c.isdigit() for c in password):
