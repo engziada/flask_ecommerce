@@ -199,6 +199,7 @@
         // Show/hide payment frame based on payment method
         paymentMethodInputs.forEach(input => {
             input.addEventListener('change', function() {
+                shippingCostCalculated = false; // Reset when payment method changes
                 if (this.value === 'card') {
                     cardElementContainer.style.display = 'block';
                     if (!paymentFrameLoaded) {
@@ -216,6 +217,7 @@
                 } else {
                     cardElementContainer.style.display = 'none';
                 }
+                updateShippingCost(); // Recalculate shipping cost when payment method changes
             });
         });
 
@@ -281,6 +283,10 @@
             shippingCostCalculated = false;
 
             try {
+                const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+                const currentSubtotal = parseFloat('{{ subtotal }}');
+                const currentDiscount = parseFloat('{{ discount }}');
+
                 const response = await fetch('{{ url_for("shipping.calculate_cost") }}', {
                     method: 'POST',
                     headers: {
@@ -290,16 +296,17 @@
                     body: JSON.stringify({
                         address_id: addressSelect.value,
                         carrier_code: 'bosta',  // Using Bosta as default carrier
-                        payment_method: document.querySelector('input[name="payment_method"]:checked').value,
-                        total: {{ subtotal }} - {{ discount }}  // Pass current total for COD calculation
+                        payment_method: selectedPaymentMethod,
+                        total: currentSubtotal - currentDiscount  // Pass current total for COD calculation
                     })
                 });
 
-                const data = await response.json();
-                
                 if (!response.ok) {
-                    throw new Error(data.error || 'Failed to calculate shipping cost');
+                    const data = await response.json();
+                    throw new Error(data.error || `Server error: ${response.status}`);
                 }
+
+                const data = await response.json();
                 
                 if (!Array.isArray(data) || data.length === 0) {
                     throw new Error('No shipping quotes available for the selected address');
@@ -311,15 +318,16 @@
                 // Update shipping cost display
                 const shippingCostElement = document.getElementById('shipping-cost');
                 const totalElement = document.getElementById('total-amount');
-                const subtotal = {{ subtotal }};
-                const discount = {{ discount }};
+                const subtotal = parseFloat('{{ subtotal }}');
+                const discount = parseFloat('{{ discount }}');
                 
-                shippingCostElement.textContent = `EGP ${quote.cost.toFixed(2)}`;
-                const total = subtotal + quote.cost - discount;
+                const shippingCost = parseFloat(quote.cost);
+                shippingCostElement.textContent = `EGP ${shippingCost.toFixed(2)}`;
+                const total = subtotal + shippingCost - discount;
                 totalElement.textContent = `EGP ${total.toFixed(2)}`;
                 
                 // Update payment intent with new total
-                if (document.querySelector('input[name="payment_method"]:checked').value === 'card') {
+                if (selectedPaymentMethod === 'card') {
                     // Update payment frame with new total
                     if (paymentUrl) {
                         paymobFrame.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Loading payment form...</p></div>';
@@ -329,8 +337,11 @@
                 shippingCostCalculated = true;
             } catch (error) {
                 console.error('Error calculating shipping cost:', error);
-                // Show the actual error message from the API if available
-                alert(error.message || 'Error calculating shipping cost. Please try again.');
+                if (error instanceof TypeError) {
+                    alert('Network error. Please check your internet connection and try again.');
+                } else {
+                    alert(error.message || 'Error calculating shipping cost. Please try again.');
+                }
                 shippingCostCalculated = false;
             } finally {
                 loadingOverlay.style.display = 'none';

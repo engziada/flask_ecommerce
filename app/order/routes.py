@@ -480,8 +480,8 @@ def cancel_order(order_id):
         
         # Restore product stock
         for item in order.items:
-            item.product.stock += item.quantity
-            current_app.logger.info(f"Restored {item.quantity} items to stock for product {item.product.name}")
+            item.ordered_product.stock += item.quantity
+            current_app.logger.info(f"Restored {item.quantity} items to stock for product {item.ordered_product.name}")
         
         # Update order status
         order.status = 'cancelled'
