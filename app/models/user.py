@@ -11,18 +11,18 @@ class User(UserMixin, db.Model):
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(128))
     phone = db.Column(db.String(20))
-    first_name = db.Column(db.String(64))
-    last_name = db.Column(db.String(64))
+    first_name = db.Column(db.String(64), nullable=False)
+    last_name = db.Column(db.String(64), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     date_registered = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     date_created = db.Column(db.DateTime, default=datetime.utcnow)
     date_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     stripe_customer_id = db.Column(db.String(255), unique=True, nullable=True)  # Added for Stripe integration
+    status = db.Column(db.String(20), default='active')  # active, cancelled, suspended
     
     # Relationships
     addresses = db.relationship('Address', backref='user', lazy=True, cascade='all, delete-orphan')
@@ -31,8 +31,7 @@ class User(UserMixin, db.Model):
     cart_items = db.relationship('Cart', backref='user', lazy=True, cascade='all, delete-orphan')
     wishlist_items = db.relationship('Wishlist', backref='user', lazy=True, cascade='all, delete-orphan')
     
-    def __init__(self, username, email, password=None):
-        self.username = username
+    def __init__(self, email, password=None):
         self.email = email
         if password:
             self.set_password(password)
@@ -75,5 +74,25 @@ class User(UserMixin, db.Model):
         """Get the user's default shipping address."""
         return next((addr for addr in self.addresses if addr.is_default), None)
     
+    def get_full_name(self):
+        """Return user's full name."""
+        return f"{self.first_name} {self.last_name}"
+    
+    def get_short_name(self):
+        """Return user's first name."""
+        return self.first_name
+    
+    def is_active(self):
+        return self.status == 'active'
+    
+    def cancel_profile(self):
+        self.status = 'cancelled'
+        
+    def suspend_profile(self):
+        self.status = 'suspended'
+        
+    def reactivate_profile(self):
+        self.status = 'active'
+        
     def __repr__(self):
-        return f'<User {self.username}>'
+        return f'<User {self.get_full_name()}>'

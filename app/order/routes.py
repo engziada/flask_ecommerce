@@ -234,7 +234,7 @@ def update_payment_intent():
 @bp.route('/process-checkout', methods=['POST'])
 @login_required
 def process_checkout():
-    """Process the checkout"""
+    """Process the checkout and save shipping address to user profile if new"""
     try:
         # Get form data
         payment_method = request.form.get('payment_method')
@@ -294,6 +294,26 @@ def process_checkout():
             except stripe.error.StripeError as e:
                 flash(f'Payment failed: {str(e)}', 'error')
                 return redirect(url_for('order.checkout'))
+        
+        # Check if address belongs to user, if not clone it to user's addresses
+        shipping_address = Address.query.get(shipping_address_id)
+        if shipping_address.user_id != current_user.id:
+            # Clone the address for the user
+            new_address = Address(
+                user_id=current_user.id,
+                name=shipping_address.name,
+                street=shipping_address.street,
+                city=shipping_address.city,
+                state=shipping_address.state,
+                zip_code=shipping_address.zip_code,
+                country=shipping_address.country,
+                phone=shipping_address.phone,
+                is_default=not bool(current_user.addresses.count())  # Make default if user has no addresses
+            )
+            db.session.add(new_address)
+            db.session.flush()  # Get the new address ID
+            shipping_address_id = new_address.id
+            current_app.logger.info(f'Cloned shipping address {shipping_address.id} to user profile as address {new_address.id}')
         
         # Create order
         order = Order(

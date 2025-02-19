@@ -12,15 +12,8 @@ if os.path.exists(env_file):
 else:
     print('Warning: .env file not found!')
 
-# Debug: Print Bosta settings
-print('DEBUG: Environment Variables:')
-print(f'BOSTA_EMAIL: {os.environ.get("BOSTA_EMAIL")}')
-print(f'BOSTA_API_KEY: {os.environ.get("BOSTA_API_KEY")}')
-
 app = create_app()
-
-# Print the database URL
-print(f'Database URL: {os.environ.get("DATABASE_URL")}')
+migrate = Migrate(app, db)
 
 # Initialize the database if it does not exist
 if not os.path.exists('shop.db'):

@@ -665,8 +665,27 @@ def mark_order_delivered(order_id):
 def users():
     """User management page"""
     page = request.args.get('page', 1, type=int)
-    users = User.query.paginate(page=page, per_page=20, error_out=False)
-    return render_template('admin/users.html', users=users)
+    status_filter = request.args.get('status', 'all')
+    
+    query = User.query
+    
+    # Apply status filter
+    if status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+    
+    # Order by registration date, newest first
+    query = query.order_by(User.date_registered.desc())
+    
+    # Paginate results
+    users = query.paginate(
+        page=page,
+        per_page=current_app.config.get('ADMIN_USERS_PER_PAGE', 20),
+        error_out=False
+    )
+    
+    return render_template('admin/users.html', 
+                         users=users,
+                         current_status=status_filter)
 
 @bp.route('/users/<int:user_id>/toggle-admin', methods=['POST'])
 @login_required
@@ -690,6 +709,42 @@ def toggle_admin(user_id):
     
     full_name = f"{user.first_name} {user.last_name}" if user.first_name and user.last_name else user.email
     flash(f"{'Removed admin status from' if not user.is_admin else 'Made'} {full_name} {'an admin' if user.is_admin else ''} successfully!", 'success')
+    return redirect(url_for('admin.users'))
+
+@bp.route('/users/status/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def update_user_status(user_id):
+    """Update user status (active/suspended/cancelled)"""
+    user = User.query.get_or_404(user_id)
+    
+    # Prevent self-modification
+    if user.id == current_user.id:
+        flash('You cannot modify your own status.', 'error')
+        return redirect(url_for('admin.users'))
+    
+    new_status = request.form.get('status')
+    if new_status not in ['active', 'suspended', 'cancelled']:
+        flash('Invalid status.', 'error')
+        return redirect(url_for('admin.users'))
+    
+    # Update user status using the appropriate method
+    if new_status == 'active':
+        user.reactivate_profile()
+    elif new_status == 'suspended':
+        user.suspend_profile()
+    else:  # cancelled
+        user.cancel_profile()
+    
+    db.session.commit()
+    
+    status_messages = {
+        'active': 'activated',
+        'suspended': 'suspended',
+        'cancelled': 'cancelled'
+    }
+    
+    flash(f'User {user.email} has been {status_messages[new_status]}.', 'success')
     return redirect(url_for('admin.users'))
 
 @bp.route('/coupons')

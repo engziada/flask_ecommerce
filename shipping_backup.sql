@@ -1,0 +1,13 @@
+INSERT INTO "table" VALUES(1,'Bosta','bosta',1,50.0,'2024-12-15 20:58:44.942896','2024-12-15 20:58:44.942896',NULL,NULL);
+INSERT INTO "table" VALUES(1,1,'Standard Shipping','standard',NULL,'3',1,'2024-12-15 20:58:44.962080','2024-12-15 20:58:44.962080');
+INSERT INTO "table" VALUES(1,1,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2024-12-16 21:07:28.869577','2024-12-15 21:07:29.862665');
+INSERT INTO "table" VALUES(2,2,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2024-12-16 21:17:05.705558','2024-12-15 21:17:06.624794');
+INSERT INTO "table" VALUES(3,3,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2024-12-16 21:47:05.755198','2024-12-15 21:47:06.724802');
+INSERT INTO "table" VALUES(4,4,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2024-12-16 22:45:26.322592','2024-12-15 22:45:27.602862');
+INSERT INTO "table" VALUES(5,5,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2024-12-16 23:06:00.031291','2024-12-15 23:06:01.386827');
+INSERT INTO "table" VALUES(6,6,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2024-12-16 23:19:07.752215','2024-12-15 23:19:09.472794');
+INSERT INTO "table" VALUES(7,7,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2024-12-16 23:39:49.429878','2024-12-15 23:39:50.499199');
+INSERT INTO "table" VALUES(8,1,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2025-01-23 00:04:48.789525','2025-01-22 00:04:52.530532');
+INSERT INTO "table" VALUES(9,2,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2025-01-23 01:20:10.492134','2025-01-22 01:20:13.599458');
+INSERT INTO "table" VALUES(10,3,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2025-01-23 01:21:20.604674','2025-01-22 01:21:23.199144');
+INSERT INTO "table" VALUES(11,4,1,1,50.0,'EGP','{"base_cost": 50.0, "method": "standard", "estimated_days": "3"}',1,'2025-01-25 01:03:12.900826','2025-01-24 01:03:15.244764');

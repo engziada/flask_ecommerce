@@ -8,26 +8,77 @@
         <!-- Profile Information -->
         <div class="col-md-8">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="mb-0">Profile Information</h4>
+                    <span class="badge {% if current_user.status == 'active' %}bg-success{% elif current_user.status == 'suspended' %}bg-warning{% else %}bg-danger{% endif %}">
+                        {{ current_user.status|title }}
+                    </span>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('auth.profile') }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="username" name="username" value="{{ current_user.username }}" required>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label for="first_name" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" value="{{ current_user.first_name }}" required>
+                            </div>
+                            <div class="col">
+                                <label for="last_name" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" value="{{ current_user.last_name }}" required>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" value="{{ current_user.email }}" required>
+                            <label for="email" class="form-label">Email (Cannot be changed)</label>
+                            <input type="email" class="form-control" id="email" value="{{ current_user.email }}" readonly>
                         </div>
                         <div class="mb-3">
                             <label for="phone" class="form-label">Phone Number</label>
                             <input type="tel" class="form-control" id="phone" name="phone" value="{{ current_user.phone }}">
                         </div>
-                        <button type="submit" class="btn btn-primary">Update Profile</button>
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary" {% if current_user.status != 'active' %}disabled{% endif %}>Update Profile</button>
+                            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteProfileModal">
+                                Delete My Profile
+                            </button>
+                        </div>
+                        {% if current_user.status != 'active' %}
+                        <div class="alert alert-warning mt-3">
+                            {% if current_user.status == 'suspended' %}
+                            Your account is currently suspended. Please contact support for assistance.
+                            {% elif current_user.status == 'cancelled' %}
+                            Your account has been cancelled. Please contact support if you wish to reactivate it.
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </form>
+                </div>
+            </div>
+
+            <!-- Delete Profile Modal -->
+            <div class="modal fade" id="deleteProfileModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Delete Profile</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete your profile? This action will:</p>
+                            <ul>
+                                <li>Mark your profile as cancelled</li>
+                                <li>Preserve your order history</li>
+                                <li>Prevent future logins</li>
+                            </ul>
+                            <p>This action cannot be undone.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <form action="{{ url_for('auth.delete_profile') }}" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-danger">Delete Profile</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -109,45 +160,72 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="addressForm" action="{{ url_for('auth.add_address') }}" method="POST">
+                <form method="POST" action="{{ url_for('auth.add_address') }}" id="addressForm">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
                     <div class="mb-3">
-                        <label for="name" class="form-label">Full Name</label>
+                        <label for="name" class="form-label">Full Name*</label>
                         <input type="text" class="form-control" id="name" name="name" required>
                     </div>
+                    
                     <div class="mb-3">
-                        <label for="street" class="form-label">Street Address</label>
+                        <label for="phone" class="form-label">Phone Number* (e.g., 01xxxxxxxxx)</label>
+                        <input type="tel" class="form-control" id="phone" name="phone" 
+                               pattern="01[0-9]{9}" 
+                               title="Please enter a valid Egyptian mobile number starting with 01" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="city" class="form-label">City*</label>
+                        <select class="form-select" id="city" name="city" required>
+                            <option value="">Select City</option>
+                            {% for city, code in bosta_cities.items() %}
+                            <option value="{{ city }}">{{ city }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="district" class="form-label">District/Area*</label>
+                        <input type="text" class="form-control" id="district" name="district" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="street" class="form-label">Street Name*</label>
                         <input type="text" class="form-control" id="street" name="street" required>
                     </div>
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label for="city" class="form-label">City</label>
-                            <input type="text" class="form-control" id="city" name="city" required>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="building_number" class="form-label">Building No.*</label>
+                                <input type="text" class="form-control" id="building_number" name="building_number" required>
+                            </div>
                         </div>
-                        <div class="col">
-                            <label for="state" class="form-label">State</label>
-                            <input type="text" class="form-control" id="state" name="state" required>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="floor" class="form-label">Floor No.*</label>
+                                <input type="text" class="form-control" id="floor" name="floor" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="apartment" class="form-label">Apartment No.*</label>
+                                <input type="text" class="form-control" id="apartment" name="apartment" required>
+                            </div>
                         </div>
                     </div>
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label for="zip_code" class="form-label">ZIP Code</label>
-                            <input type="text" class="form-control" id="zip_code" name="zip_code" required>
-                        </div>
-                        <div class="col">
-                            <label for="country" class="form-label">Country</label>
-                            <input type="text" class="form-control" id="country" name="country" required>
-                        </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_default" name="is_default" value="true">
+                        <label class="form-check-label" for="is_default">Set as default address</label>
                     </div>
-                    <div class="mb-3">
-                        <label for="phone" class="form-label">Phone Number</label>
-                        <input type="tel" class="form-control" id="phone" name="phone" required>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Save Address</button>
                     </div>
                 </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" form="addressForm" class="btn btn-primary">Save Address</button>
             </div>
         </div>
     </div>

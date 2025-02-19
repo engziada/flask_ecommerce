@@ -234,8 +234,19 @@ To restore to this checkpoint:
 git restore --source=checkpoint-11 .
 ```
 
+### Checkpoint 12 (2025-02-19)
+- Fixed template block naming in checkout page from 'extra_js' to 'scripts'
+- Enhanced template consistency across the application
+- Improved code organization in checkout process
+- Ensured proper JavaScript loading in checkout page
+
+To restore to this checkpoint:
+```bash
+git restore --source=checkpoint-12 .
+```
+
 ## License
 
 This project is licensed under the MIT License.
 
-Last Updated: February 18, 2025
+Last Updated: February 19, 2025

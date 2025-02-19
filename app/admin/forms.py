@@ -45,9 +45,10 @@ class ProductForm(FlaskForm):
         DataRequired(message='Product description is required.'),
         Length(min=10, max=2000, message='Description must be between 10 and 2000 characters.')
     ])
-    price = DecimalField('Price', validators=[
+    price = DecimalField('Price (EGP)', validators=[
         DataRequired(message='Price is required.'),
-        NumberRange(min=0, message='Price cannot be negative.')
+        NumberRange(min=0, message='Price cannot be negative.'),
+        NumberRange(max=1000000, message='Price cannot exceed 1,000,000 EGP.')
     ], places=2)
     stock = IntegerField('Stock', validators=[
         DataRequired(message='Stock is required.'),

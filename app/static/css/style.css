@@ -84,8 +84,9 @@ body {
 
 /* Badge Styling */
 .badge {
-    border-radius: 20px;
-    padding: 0.5em 1em;
+    border-radius: 50%;
+    padding: 0.5em 0.8em;
+    font-size: 0.5em;
 }
 
 /* Product Card Styles */
@@ -574,9 +575,6 @@ table th {
     background-color: #f8f9fa;
 }
 
-.badge {
-    font-size: 0.9em;
-}
 
 /* Status Badges */
 .status-badge {
@@ -1959,4 +1957,32 @@ footer {
 .product-card .product-image-container,
 .product-card .product-details {
     transition: all 0.3s ease;
+}
+
+/* User Dropdown in Navbar */
+.navbar .nav-link.dropdown-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+}
+
+.navbar .nav-link .bi-person-circle {
+    font-size: 1.2rem;
+}
+
+.navbar .user-name {
+    font-weight: 500;
+    color: var(--bs-primary);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) {
+    .navbar .user-name {
+        max-width: 150px;
+    }
 }
