@@ -39,7 +39,8 @@
                         <p class="text-center mb-4" style="color: #553800;">Discover timeless elegance in every piece</p>
                         <p class="text-center mb-4 text-danger font-weight-italic">To use your cart, you need to register or login</p>
                     {% else %}
-                        <h2 style="font-family: 'Mea Culpa', cursive; font-weight: bolder;text-align: right;color: #553800;">Welcome, {{ current_user.username }}</h2>
+                        <h2 style="font-family: 'Mea Culpa', cursive; font-weight: bolder;text-align: right;color: #553800;">Welcome, </h2>
+                        <h2 style="font-family: 'Mea Culpa', cursive; font-weight: bolder;text-align: right;color: #553800;">{{ current_user.first_name }} {{ current_user.last_name }}</h2>
                         <div class="auth-buttons">
                             <button onclick="window.location.href='{{ url_for('auth.logout') }}'" class="btn btn-primary logout">Logout</button>
                         </div>

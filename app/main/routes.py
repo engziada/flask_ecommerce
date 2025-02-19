@@ -37,6 +37,7 @@ def utility_processor():
 
 @bp.route('/')
 @bp.route('/index')
+@bp.route('/home')
 def index():
     """Home page route"""
     try:
@@ -47,15 +48,12 @@ def index():
 
 @bp.route('/shop')
 def shop():
-    try:
-        page = request.args.get('page', 1, type=int)
-        products = Product.query.filter_by(is_active=True, is_deleted=False).paginate(
-            page=page, per_page=current_app.config.get('PRODUCTS_PER_PAGE', 12)
-        )
-        return render_template('shop/index.html', products=products)
-    except Exception as e:
-        current_app.logger.error(f'Error in index route: {str(e)}')
-        return render_template('errors/500.html'), 500
+    page = request.args.get('page', 1, type=int)
+    products = Product.query.filter_by(is_active=True, is_deleted=False).paginate(
+        page=page, per_page=current_app.config.get('PRODUCTS_PER_PAGE', 12)
+    )
+    categories = Category.query.all()
+    return render_template('main/shop.html', products=products, categories=categories)
 
 @bp.route('/product/<int:product_id>')
 def product_detail(product_id):

@@ -261,8 +261,20 @@ To restore to this checkpoint:
 git restore --source=checkpoint-10 .
 ```
 
+### Checkpoint 13 (2025-02-20)
+- Fixed JSON serialization error in shop template
+- Fixed wishlist functionality in shop page
+- Properly handled current_user.is_authenticated method call
+- Improved JavaScript code in shop template for better reliability
+- Enhanced error handling for user authentication checks
+
+To restore to this checkpoint:
+```bash
+git restore --source=checkpoint-13 .
+```
+
 ## License
 
 This project is licensed under the MIT License.
 
-Last Updated: February 19, 2025
+Last Updated: February 20, 2025

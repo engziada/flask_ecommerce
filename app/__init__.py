@@ -101,7 +101,6 @@ def create_app(config_class=Config):
         ('errors', 'app.errors', None),
         ('auth', 'app.auth', None),  # URL prefix is defined in the blueprint
         ('main', 'app.main', None),
-        ('shop', 'app.shop', None),
         ('cart', 'app.cart', '/cart'),
         ('wishlist', 'app.wishlist', '/wishlist'),
         ('order', 'app.order', '/order'),

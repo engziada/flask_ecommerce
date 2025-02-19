@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Welcome to Flask Shop{% endblock %}
+{% block title %}Shop{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -10,7 +10,7 @@
             <h4>Categories</h4>
             <div class="list-group">
                 {% for category in categories %}
-                <a href="{{ url_for('shop.category_products', category_id=category.id) }}" 
+                <a href="{{ url_for('main.category_products', category_id=category.id) }}" 
                    class="list-group-item list-group-item-action">
                     {{ category.name }}
                 </a>
@@ -74,7 +74,7 @@
                             </div>
 
                             <div class="card-actions">
-                                <a href="{{ url_for('shop.product_detail', product_id=product.id) }}" class="btn btn-outline-primary">
+                                <a href="{{ url_for('main.product_detail', product_id=product.id) }}" class="btn btn-outline-primary">
                                     <i class="bi bi-eye"></i> Details
                                 </a>
                                 {% if current_user.is_authenticated %}
@@ -140,7 +140,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Check wishlist status for all products
-    if ({{ current_user.is_authenticated|tojson }}) {
+    if ({{ current_user.is_authenticated()|tojson }}) {
         document.querySelectorAll('[data-product-id]').forEach(button => {
             const productId = button.dataset.productId;
             checkWishlistStatus(productId);

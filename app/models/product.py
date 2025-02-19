@@ -36,6 +36,14 @@ class ProductColor(db.Model):
         self.product_id = product_id
         self.stock = stock
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'hex_code': self.hex_code,
+            'stock': self.stock
+        }
+
 class Product(db.Model):
     __tablename__ = 'products'
     __table_args__ = {'extend_existing': True}
@@ -82,15 +90,15 @@ class Product(db.Model):
         """Get the primary image for the product"""
         primary = self.images.filter_by(is_primary=True).first()
         if primary:
-            return primary.image_url
+            return primary
         # Fallback to first image or default image
         first_image = self.images.first()
-        return first_image.image_url if first_image else None
+        return first_image
 
     @property
     def image_url(self):
         """Backward compatibility for old code that expects image_url"""
-        return self.primary_image
+        return self.primary_image.image_url if self.primary_image else None
 
     @property
     def average_rating(self):
@@ -106,7 +114,6 @@ class Product(db.Model):
         return True
     
     def to_dict(self):
-        """Convert product to dictionary"""
         return {
             'id': self.id,
             'name': self.name,
@@ -114,7 +121,14 @@ class Product(db.Model):
             'price': self.price,
             'stock': self.stock,
             'category_id': self.category_id,
-            'average_rating': self.average_rating
+            'sku': self.sku,
+            'weight': self.weight,
+            'dimensions': self.dimensions,
+            'image_url': self.primary_image.image_url if self.primary_image else None,
+            'colors': [color.to_dict() for color in self.colors],
+            'average_rating': self.average_rating,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
     
     def __repr__(self):
