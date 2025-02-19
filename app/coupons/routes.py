@@ -1,10 +1,10 @@
-from flask import jsonify, request, flash, redirect, url_for
+from flask import jsonify, request, flash, redirect, url_for, render_template
 from flask_login import login_required, current_user
 from app.coupons import bp
 from app.models.coupon import Coupon
 from app.extensions import db
 from app.utils.decorators import admin_required
-from datetime import datetime
+from datetime import datetime, timedelta
 
 @bp.route('/apply', methods=['POST'])
 @login_required
@@ -38,6 +38,19 @@ def apply_coupon():
 @bp.route('/admin/coupons', methods=['GET'])
 @login_required
 @admin_required
+def manage_coupons():
+    """Manage coupons page (admin only)"""
+    today = datetime.now().date()
+    tomorrow = today + timedelta(days=1)
+    coupons = Coupon.query.all()
+    return render_template('admin/coupons.html', 
+                         coupons=coupons,
+                         today=today,
+                         tomorrow=tomorrow)
+
+@bp.route('/admin/api/coupons', methods=['GET'])
+@login_required
+@admin_required
 def list_coupons():
     """List all coupons (admin only)"""
     coupons = Coupon.query.all()
@@ -51,20 +64,56 @@ def create_coupon():
     data = request.get_json()
     
     try:
-        # Convert date strings to datetime objects
+        # Validate required fields
+        required_fields = ['code', 'discount_type', 'discount_amount']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Validate discount type
+        valid_discount_types = ['percentage', 'fixed', 'free_shipping']
+        if data['discount_type'] not in valid_discount_types:
+            return jsonify({'error': f'Invalid discount type. Must be one of: {", ".join(valid_discount_types)}'}), 400
+        
+        # Validate discount amount
+        try:
+            discount_amount = float(data['discount_amount'])
+            if discount_amount < 0:
+                return jsonify({'error': 'Discount amount cannot be negative'}), 400
+            if data['discount_type'] == 'percentage' and discount_amount > 100:
+                return jsonify({'error': 'Percentage discount cannot exceed 100%'}), 400
+        except ValueError:
+            return jsonify({'error': 'Invalid discount amount'}), 400
+        
+        # Convert date strings to datetime objects if provided
+        valid_from = None
+        valid_until = None
+        
         if data.get('valid_from'):
-            data['valid_from'] = datetime.fromisoformat(data['valid_from'])
+            try:
+                valid_from = datetime.fromisoformat(data['valid_from'].replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'error': 'Invalid valid_from date format'}), 400
+                
         if data.get('valid_until'):
-            data['valid_until'] = datetime.fromisoformat(data['valid_until'])
+            try:
+                valid_until = datetime.fromisoformat(data['valid_until'].replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'error': 'Invalid valid_until date format'}), 400
+        
+        # Check if coupon code already exists
+        existing_coupon = Coupon.query.filter_by(code=data['code'].strip().upper()).first()
+        if existing_coupon:
+            return jsonify({'error': 'Coupon code already exists'}), 400
             
         coupon = Coupon(
             code=data['code'],
             discount_type=data['discount_type'],
-            discount_amount=float(data['discount_amount']),
+            discount_amount=discount_amount,
             min_purchase_amount=float(data.get('min_purchase_amount', 0)),
             max_discount_amount=float(data['max_discount_amount']) if data.get('max_discount_amount') else None,
-            valid_from=data.get('valid_from'),
-            valid_until=data.get('valid_until'),
+            valid_from=valid_from,
+            valid_until=valid_until,
             usage_limit=int(data['usage_limit']) if data.get('usage_limit') else None
         )
         
@@ -105,20 +154,56 @@ def update_coupon(coupon_id):
     data = request.get_json()
     
     try:
+        # Validate discount type if provided
+        if 'discount_type' in data:
+            valid_discount_types = ['percentage', 'fixed', 'free_shipping']
+            if data['discount_type'] not in valid_discount_types:
+                return jsonify({'error': f'Invalid discount type. Must be one of: {", ".join(valid_discount_types)}'}), 400
+        
+        # Validate discount amount if provided
+        if 'discount_amount' in data:
+            try:
+                discount_amount = float(data['discount_amount'])
+                if discount_amount < 0:
+                    return jsonify({'error': 'Discount amount cannot be negative'}), 400
+                if data.get('discount_type', coupon.discount_type) == 'percentage' and discount_amount > 100:
+                    return jsonify({'error': 'Percentage discount cannot exceed 100%'}), 400
+                coupon.discount_amount = discount_amount
+            except ValueError:
+                return jsonify({'error': 'Invalid discount amount'}), 400
+        
+        # Update code if provided
         if 'code' in data:
-            coupon.code = data['code'].upper()
+            new_code = data['code'].strip().upper()
+            existing_coupon = Coupon.query.filter(
+                Coupon.code == new_code,
+                Coupon.id != coupon_id
+            ).first()
+            if existing_coupon:
+                return jsonify({'error': 'Coupon code already exists'}), 400
+            coupon.code = new_code
+            
+        # Update other fields
         if 'discount_type' in data:
             coupon.discount_type = data['discount_type']
-        if 'discount_amount' in data:
-            coupon.discount_amount = float(data['discount_amount'])
         if 'min_purchase_amount' in data:
             coupon.min_purchase_amount = float(data['min_purchase_amount'])
         if 'max_discount_amount' in data:
             coupon.max_discount_amount = float(data['max_discount_amount']) if data['max_discount_amount'] else None
+            
+        # Handle dates
         if 'valid_from' in data:
-            coupon.valid_from = datetime.fromisoformat(data['valid_from'])
+            try:
+                coupon.valid_from = datetime.fromisoformat(data['valid_from'].replace('Z', '+00:00')) if data['valid_from'] else None
+            except ValueError:
+                return jsonify({'error': 'Invalid valid_from date format'}), 400
+                
         if 'valid_until' in data:
-            coupon.valid_until = datetime.fromisoformat(data['valid_until']) if data['valid_until'] else None
+            try:
+                coupon.valid_until = datetime.fromisoformat(data['valid_until'].replace('Z', '+00:00')) if data['valid_until'] else None
+            except ValueError:
+                return jsonify({'error': 'Invalid valid_until date format'}), 400
+                
         if 'usage_limit' in data:
             coupon.usage_limit = int(data['usage_limit']) if data['usage_limit'] else None
         if 'is_active' in data:

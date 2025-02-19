@@ -92,7 +92,7 @@
 {% include 'includes/_product_modal.html' %}
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
 <script>
 function toggleWishlist(productId) {
     fetch(`/wishlist/toggle/${productId}`, {

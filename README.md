@@ -245,6 +245,22 @@ To restore to this checkpoint:
 git restore --source=checkpoint-12 .
 ```
 
+### Checkpoint 10 (2025-02-19)
+- Updated template block names for better consistency
+- Changed `extra_js` block to `scripts` in multiple templates:
+  - admin/product_form.html
+  - wishlist/wishlist.html
+  - shop/index.html
+  - main/product_detail.html
+  - main/category_products.html
+- Improved template inheritance structure
+- Enhanced code maintainability and readability
+
+To restore to this checkpoint:
+```bash
+git restore --source=checkpoint-10 .
+```
+
 ## License
 
 This project is licensed under the MIT License.

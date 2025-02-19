@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
+from datetime import datetime, timedelta
 import os
 import logging
 import sys
@@ -753,107 +754,108 @@ def update_user_status(user_id):
 def coupons():
     """Coupon management page"""
     coupons = Coupon.query.all()
-    return render_template('admin/coupons.html', coupons=[c.to_dict() for c in coupons])
+    today = datetime.now().date()
+    tomorrow = today + timedelta(days=1)
+    return render_template('admin/coupons.html', 
+                         coupons=[c.to_dict() for c in coupons],
+                         today=today,
+                         tomorrow=tomorrow)
 
 @bp.route('/api/coupons', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def manage_coupons():
-    """Manage coupons - list, create"""
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-            
-            # Convert valid_from and valid_until to UTC
-            valid_from = datetime.fromisoformat(data.get('valid_from')) if data.get('valid_from') else datetime.utcnow()
-            valid_until = datetime.fromisoformat(data.get('valid_until')) if data.get('valid_until') else None
-            
-            # Subtract 2 hours to convert from UTC+2 to UTC
-            valid_from = valid_from - timedelta(hours=2)
-            if valid_until:
-                valid_until = valid_until - timedelta(hours=2)
-            
-            coupon = Coupon(
-                code=data.get('code'),
-                discount_type=data.get('discount_type'),
-                discount_amount=float(data.get('discount_amount', 0)),
-                min_purchase_amount=float(data.get('min_purchase_amount', 0)),
-                max_discount_amount=float(data.get('max_discount_amount')) if data.get('max_discount_amount') else None,
-                valid_from=valid_from,
-                valid_until=valid_until,
-                usage_limit=int(data.get('usage_limit')) if data.get('usage_limit') else None
-            )
-            
-            db.session.add(coupon)
-            db.session.commit()
-            
-            return jsonify({'success': True})
-            
-        except Exception as e:
-            current_app.logger.error(f"Error creating coupon: {str(e)}")
-            db.session.rollback()
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
-            
-    # GET request - return all coupons
-    coupons = Coupon.query.all()
-    return jsonify([c.to_dict() for c in coupons])
+    """API endpoint for coupon management"""
+    if request.method == 'GET':
+        coupons = Coupon.query.all()
+        return jsonify([c.to_dict() for c in coupons])
+    
+    # Handle POST request
+    data = request.get_json()
+    
+    try:
+        # Validate required fields
+        required_fields = ['code', 'discount_type', 'discount_amount']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Validate discount type
+        valid_discount_types = ['percentage', 'fixed', 'free_shipping']
+        if data['discount_type'] not in valid_discount_types:
+            return jsonify({'error': f'Invalid discount type. Must be one of: {", ".join(valid_discount_types)}'}), 400
+        
+        # Create new coupon
+        coupon = Coupon(
+            code=data['code'],
+            discount_type=data['discount_type'],
+            discount_amount=float(data['discount_amount']),
+            min_purchase_amount=float(data.get('min_purchase_amount', 0)),
+            max_discount_amount=float(data['max_discount_amount']) if data.get('max_discount_amount') else None,
+            valid_from=datetime.fromisoformat(data['valid_from']) if data.get('valid_from') else None,
+            valid_until=datetime.fromisoformat(data['valid_until']) if data.get('valid_until') else None,
+            usage_limit=int(data['usage_limit']) if data.get('usage_limit') else None
+        )
+        
+        db.session.add(coupon)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Coupon created successfully',
+            'coupon': coupon.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
 
 @bp.route('/api/coupons/<int:coupon_id>', methods=['PUT', 'DELETE'])
 @login_required
 @admin_required
 def manage_coupon(coupon_id):
-    """Manage single coupon - update, delete"""
-    try:
-        coupon = Coupon.query.get_or_404(coupon_id)
-        
-        if request.method == 'DELETE':
+    """API endpoint for managing a single coupon"""
+    coupon = Coupon.query.get_or_404(coupon_id)
+    
+    if request.method == 'DELETE':
+        try:
             db.session.delete(coupon)
             db.session.commit()
-            return jsonify({'success': True})
-            
-        # PUT request
-        data = request.get_json()
-        
-        # Validate input
-        if not data.get('code'):
-            return jsonify({'success': False, 'error': 'Coupon code is required'})
-            
-        if not data.get('discount_type') in ['percentage', 'fixed', 'free_shipping']:
-            return jsonify({'success': False, 'error': 'Invalid discount type'})
-            
-        # Check if the new code already exists (excluding current coupon)
-        existing_coupon = Coupon.query.filter(
-            Coupon.code == data['code'].upper(),
-            Coupon.id != coupon_id
-        ).first()
-        if existing_coupon:
-            return jsonify({'success': False, 'error': 'A coupon with this code already exists'})
-            
-        if data['discount_type'] != 'free_shipping':
-            try:
-                discount_amount = float(data.get('discount_amount', 0))
-                if data['discount_type'] == 'percentage' and (discount_amount <= 0 or discount_amount > 100):
-                    return jsonify({'success': False, 'error': 'Percentage discount must be between 0 and 100'})
-                elif data['discount_type'] == 'fixed' and discount_amount <= 0:
-                    return jsonify({'success': False, 'error': 'Fixed discount amount must be greater than 0'})
-            except ValueError:
-                return jsonify({'success': False, 'error': 'Invalid discount amount'})
-        
-        # Update coupon
-        coupon.code = data['code']
-        coupon.discount_type = data['discount_type']
-        coupon.discount_amount = float(data.get('discount_amount', 0))
-        coupon.min_purchase_amount = float(data.get('min_purchase_amount', 0))
-        coupon.max_discount_amount = float(data.get('max_discount_amount')) if data.get('max_discount_amount') else None
-        coupon.valid_from = datetime.fromisoformat(data['valid_from']) if data.get('valid_from') else None
-        coupon.valid_until = datetime.fromisoformat(data['valid_until']) if data.get('valid_until') else None
-        coupon.usage_limit = int(data['usage_limit']) if data.get('usage_limit') else None
+            return jsonify({'success': True, 'message': 'Coupon deleted successfully'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 400
+    
+    # Handle PUT request
+    data = request.get_json()
+    
+    try:
+        if 'code' in data:
+            coupon.code = data['code'].strip().upper()
+        if 'discount_type' in data:
+            if data['discount_type'] not in ['percentage', 'fixed', 'free_shipping']:
+                return jsonify({'error': 'Invalid discount type'}), 400
+            coupon.discount_type = data['discount_type']
+        if 'discount_amount' in data:
+            coupon.discount_amount = float(data['discount_amount'])
+        if 'min_purchase_amount' in data:
+            coupon.min_purchase_amount = float(data['min_purchase_amount'])
+        if 'max_discount_amount' in data:
+            coupon.max_discount_amount = float(data['max_discount_amount']) if data['max_discount_amount'] else None
+        if 'valid_from' in data:
+            coupon.valid_from = datetime.fromisoformat(data['valid_from']) if data['valid_from'] else None
+        if 'valid_until' in data:
+            coupon.valid_until = datetime.fromisoformat(data['valid_until']) if data['valid_until'] else None
+        if 'usage_limit' in data:
+            coupon.usage_limit = int(data['usage_limit']) if data['usage_limit'] else None
         
         db.session.commit()
-        return jsonify({'success': True})
+        return jsonify({
+            'success': True,
+            'message': 'Coupon updated successfully',
+            'coupon': coupon.to_dict()
+        })
+        
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'error': str(e)}), 400
