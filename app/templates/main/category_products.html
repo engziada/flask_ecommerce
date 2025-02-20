@@ -49,13 +49,21 @@
                     </div>
                     {% endif %}
                     
-                    {% if current_user.is_authenticated %}
+                    <!-- {% if current_user.is_authenticated %}
                     <button onclick="toggleWishlist({{ product.id }})" 
                             class="btn btn-light position-absolute top-0 end-0 m-2 rounded-circle p-2 wishlist-btn"
                             data-product-id="{{ product.id }}">
                         <i class="bi bi-heart wishlist-icon-{{ product.id }}"></i>
                     </button>
+                    {% endif %} -->
+                    
+                    <!-- Wishlist Button -->
+                    {% if current_user.is_authenticated %}
+                    <button class="wishlist-btn {% if product.id in wishlist_items %}text-danger{% endif %}" onclick="toggleWishlist({{ product.id }})">
+                        <i class="bi wishlist-icon-{{ product.id }} {% if product.id in wishlist_items %}bi-heart-fill{% else %}bi-heart{% endif %}"></i>
+                    </button>
                     {% endif %}
+
                     
                     <button onclick="showProductQuickView({{ product.id }})" 
                             class="btn btn-light position-absolute bottom-0 end-0 m-2 rounded-circle p-2 quick-view-btn"

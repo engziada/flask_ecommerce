@@ -99,7 +99,7 @@ def create_app(config_class=Config):
     # Register blueprints
     blueprints = [
         ('errors', 'app.errors', None),
-        ('auth', 'app.auth', None),  # URL prefix is defined in the blueprint
+        ('auth', 'app.auth', '/auth'),
         ('main', 'app.main', None),
         ('cart', 'app.cart', '/cart'),
         ('wishlist', 'app.wishlist', '/wishlist'),
@@ -108,7 +108,7 @@ def create_app(config_class=Config):
         ('reviews', 'app.reviews', '/reviews'),
         ('coupons', 'app.coupons', '/coupons'),
         ('shipping', 'app.shipping', '/shipping'),
-        ('admin', 'app.admin', None),  # URL prefix is defined in the blueprint
+        ('admin', 'app.admin', '/admin'), 
     ]
 
     for name, module, url_prefix in blueprints:

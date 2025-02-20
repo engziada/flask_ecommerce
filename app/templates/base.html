@@ -12,8 +12,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    
-    {% block extra_css %}{% endblock %}
+
+    {% block styles %}{% endblock %}
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -69,18 +69,18 @@
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link position-relative" href="{{ url_for('wishlist.wishlist') }}">
+                        <a class="nav-link position-relative navbar-wishlist-item" href="{{ url_for('wishlist.wishlist') }}">
                             <i class="bi bi-heart"></i> Wishlist
                             {% if wishlist_total is defined and wishlist_total > 0 %}
-                            <span class="badge bg-danger" id="wishlist-total">{{ wishlist_total }}</span>
+                            <span class="navbar-badge bg-danger" id="wishlist-total">{{ wishlist_total }}</span>
                             {% endif %}
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link position-relative" href="{{ url_for('cart.cart') }}">
+                        <a class="nav-link position-relative navbar-cart-item" href="{{ url_for('cart.cart') }}">
                             <i class="bi bi-cart"></i> Cart
                             {% if cart_total is defined and cart_total > 0 %}
-                            <span class="badge bg-danger" id="cart-total">{{ cart_total }}</span>
+                            <span class="navbar-badge bg-danger" id="cart-total">{{ cart_total }}</span>
                             {% endif %}
                         </a>
                     </li>
@@ -108,6 +108,9 @@
                             </a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin.coupons') }}">
                                 <i class="bi bi-ticket-perforated me-2"></i>Manage Coupons
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.sales_report') }}">
+                                <i class="bi bi-graph-up me-2"></i>Sales Report
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             {% endif %}
@@ -217,6 +220,7 @@
     
     <!-- Main JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>

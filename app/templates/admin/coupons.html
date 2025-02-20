@@ -1,17 +1,6 @@
 {% extends 'admin/admin_base.html' %}
 
-{% block title %}Coupon Management{% endblock %}
-
-{% block head %}
-{{ super() }}
-<script>
-    $(document).ready(function() {
-        console.log('Document ready in head block');
-        console.log('jQuery version:', $.fn.jquery);
-        console.log('Bootstrap version:', bootstrap.Modal.VERSION);
-    });
-</script>
-{% endblock %}
+{% block title %}Admin - Coupon Management{% endblock %}
 
 {% block admin_content %}
 <div class="container mt-4">
@@ -148,9 +137,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-    {{ super() }}
-    <script src="{{ url_for('static', filename='js/coupons.js') }}"></script>
 {% endblock %}

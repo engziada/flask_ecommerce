@@ -215,7 +215,7 @@ function updateCartCount(count) {
             // Create new badge if it doesn't exist
             badge = document.createElement('span');
             badge.id = 'cart-total';
-            badge.className = 'badge bg-danger position-absolute top-0 start-100 translate-middle';
+            badge.className = 'navbar-badge bg-danger';
             cartLink.appendChild(badge);
         }
         badge.textContent = count;
@@ -234,7 +234,7 @@ function updateWishlistCount(count) {
     if (count > 0) {
         if (!wishlistTotal) {
             wishlistTotal = document.createElement('span');
-            wishlistTotal.className = 'badge bg-danger';
+            wishlistTotal.className = 'navbar-badge bg-danger';
             wishlistTotal.id = 'wishlist-total';
             wishlistLink.appendChild(wishlistTotal);
         }

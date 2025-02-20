@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify, send_file
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
@@ -21,6 +21,7 @@ from app.extensions import db, csrf
 from functools import wraps
 from . import bp
 from .forms import CategoryForm, ProductForm
+import openpyxl
 
 @bp.route('/')
 @login_required
@@ -859,3 +860,83 @@ def manage_coupon(coupon_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
+
+@bp.route('/sales_report')
+@login_required
+@admin_required
+def sales_report():
+    """Sales report page"""
+    # Get filter parameters
+    status = request.args.get('status', 'all')  # Default to all statuses
+    
+    # Base query - only get paid orders
+    query = Order.query.filter(Order.payment_status == 'paid')
+    
+    # Apply status filter
+    if status != 'all':
+        query = query.filter(Order.status == status)
+    
+    # Get orders with applied filters
+    orders = query.order_by(Order.date_created.desc()).all()
+
+    # Check if the request wants to download Excel
+    if request.args.get('format') == 'excel':
+        import os
+        from tempfile import gettempdir
+        
+        # Create a new Excel workbook
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+
+        # Write headers to the Excel sheet
+        sheet.append(['Order ID', 'User ID', 'Product Name', 'Quantity', 'Price', 'Date Created', 'Status', 'Payment Status'])
+
+        # Write data to the Excel sheet
+        for order in orders:
+            for item in order.items:
+                sheet.append([
+                    order.id,
+                    order.user_id,
+                    item.ordered_product.name,
+                    item.quantity,
+                    item.ordered_product.price,
+                    order.date_created.strftime('%Y-%m-%d %H:%M:%S'),
+                    order.status,
+                    order.payment_status
+                ])
+
+        # Save the Excel file to a temporary location
+        temp_dir = gettempdir()
+        filename = os.path.join(temp_dir, 'sales_report.xlsx')
+        workbook.save(filename)
+
+        try:
+            # Return the Excel file as a response
+            return send_file(
+                filename,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name='sales_report.xlsx'
+            )
+        finally:
+            # Clean up the temporary file after sending
+            try:
+                os.remove(filename)
+            except:
+                pass  # Ignore cleanup errors
+
+    # Get all possible order statuses for the filter dropdown
+    statuses = [
+        ('all', 'All Statuses'),
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled')
+    ]
+
+    # Render the template for web view
+    return render_template('admin/sales_report.html', 
+                         orders=orders,
+                         statuses=statuses,
+                         current_status=status)

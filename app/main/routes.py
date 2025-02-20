@@ -9,7 +9,7 @@ from app.forms.contact import ContactForm
 from app.forms.review import ReviewForm
 from app.extensions import db, mail
 from flask_mail import Message
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.main import bp
 from sqlalchemy import func
 
@@ -53,7 +53,24 @@ def shop():
         page=page, per_page=current_app.config.get('PRODUCTS_PER_PAGE', 12)
     )
     categories = Category.query.all()
-    return render_template('main/shop.html', products=products, categories=categories)
+    
+    # Get wishlist items for the current user
+    wishlist_items = set()
+    if current_user.is_authenticated:
+        wishlist_items = {item.product_id for item in Wishlist.query.filter_by(user_id=current_user.id).all()}
+    
+    # Check if any product is new
+    # Get current time
+    current_time = datetime.now()
+    # Calculate the date 30 days ago
+    thirty_days_ago = current_time - timedelta(days=30)
+    for product in products:
+        product.is_new = product.created_at >= thirty_days_ago
+    
+    return render_template('main/shop.html', 
+                         products=products, 
+                         categories=categories,
+                         wishlist_items=wishlist_items)
 
 @bp.route('/product/<int:product_id>')
 def product_detail(product_id):
@@ -70,24 +87,36 @@ def product_detail(product_id):
     current_app.logger.debug(f'Product has {len(reviews)} reviews')
     return render_template('main/product_detail.html', product=product, reviews=reviews, form=form)
 
+# @bp.route('/category/<int:category_id>')
+# def category_products(category_id):
+#     page = request.args.get('page', 1, type=int)
+#     category = Category.query.get_or_404(category_id)
+#     products = Product.query.filter_by(category_id=category_id, is_active=True, is_deleted=False).paginate(
+#         page=page, per_page=current_app.config.get('PRODUCTS_PER_PAGE', 12)
+#     )
+#     return render_template('main/category_products.html', 
+#                          category=category, 
+#                          products=products)
+
 @bp.route('/category/<int:category_id>')
 def category_products(category_id):
-    """Category products page"""
-    current_app.logger.debug(f'Accessing category products for category_id: {category_id}')
-    
     page = request.args.get('page', 1, type=int)
     category = Category.query.get_or_404(category_id)
-    current_app.logger.debug(f'Found category: {category.name}')
-    
     products = Product.query.filter_by(category_id=category_id, is_active=True, is_deleted=False).paginate(
         page=page, per_page=current_app.config.get('PRODUCTS_PER_PAGE', 12)
     )
-    current_app.logger.debug(f'Found {products.total} products in category')
-    current_app.logger.debug(f'Displaying page {page} of {products.pages}')
+    categories = Category.query.all()
     
-    return render_template('main/category_products.html', 
-                         category=category, 
-                         products=products)
+    # Get wishlist items for the current user (same as shop route)
+    wishlist_items = set()
+    if current_user.is_authenticated:
+        wishlist_items = {item.product_id for item in Wishlist.query.filter_by(user_id=current_user.id).all()}
+    
+    return render_template('main/shop.html', 
+                         products=products, 
+                         categories=categories,
+                         category=category,
+                         wishlist_items=wishlist_items)
 
 @bp.route('/search')
 def search():

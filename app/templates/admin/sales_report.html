@@ -1,0 +1,92 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}Admin - Sales Report{% endblock %}
+
+{% block admin_content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Sales Report</h1>
+            <p class="lead">View and export paid orders data</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('admin.sales_report', format='excel', status=current_status) }}" class="btn btn-success">
+                <i class="fas fa-download"></i> Download Excel Report
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="status" class="form-label">Filter by Order Status</label>
+                    <select name="status" id="status" class="form-select" onchange="this.form.submit()">
+                        {% for status_value, status_label in statuses %}
+                        <option value="{{ status_value }}" {% if current_status == status_value %}selected{% endif %}>
+                            {{ status_label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="card">
+        <div class="card-body">
+            {% if orders %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>User ID</th>
+                            <th>Product Name</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Date Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                            {% for item in order.items %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('admin.order_detail', order_id=order.id) }}">
+                                            {{ order.id }}
+                                        </a>
+                                    </td>
+                                    <td>{{ order.user_id }}</td>
+                                    <td>{{ item.ordered_product.name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>${{ "%.2f"|format(item.ordered_product.price) }}</td>
+                                    <td>${{ "%.2f"|format(item.ordered_product.price * item.quantity) }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if order.status == 'delivered' 
+                                                               else 'primary' if order.status == 'shipped'
+                                                               else 'danger' if order.status == 'cancelled'
+                                                               else 'warning' }}">
+                                            {{ order.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ order.date_created.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                No paid orders found matching the selected criteria.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
