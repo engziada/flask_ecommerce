@@ -26,9 +26,23 @@
         {% else %}
         <p>No categories available.</p>
         {% endif %}
-
+        
         <!-- Products Grid -->
-        <div class="col-md-9">
+        <div class="col-md-{% if category %}11{% else %}9{% endif %}">
+            <!-- Sort Options -->
+            <div class="d-flex justify-content-end mb-4">
+                <div class="form-group">
+                    <label for="sort-select" style="color: var(--secondary-color);" >Sort By</label>
+                    <select id="sort-select" class="form-select" onchange="updateSort(this.value)">
+                        <option value="default" {% if sort_by == 'default' %}selected{% endif %}>Default Sorting</option>
+                        <option value="price_low" {% if sort_by == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                        <option value="price_high" {% if sort_by == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                        <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest First</option>
+                        <option value="name_asc" {% if sort_by == 'name_asc' %}selected{% endif %}>Name: A to Z</option>
+                        <option value="name_desc" {% if sort_by == 'name_desc' %}selected{% endif %}>Name: Z to A</option>
+                    </select>
+                </div>
+            </div>
             <div class="row row-cols-1 row-cols-md-3 g-4 products-grid">
                 {% for product in products.items %}
                 <div class="col-md-4 mb-4 product-card-container {% if product.is_new %}new-product{% endif %}">
@@ -172,6 +186,20 @@ function checkWishlistStatus(productId) {
             }
         })
         .catch(error => console.error('Error:', error));
+}
+
+function updateSort(value) {
+    // Get current URL
+    const url = new URL(window.location.href);
+    
+    // Update or add sort parameter
+    url.searchParams.set('sort', value);
+    
+    // Reset page parameter to 1 when sorting changes
+    url.searchParams.set('page', '1');
+    
+    // Navigate to new URL
+    window.location.href = url.toString();
 }
 
 function toggleWishlist(productId) {

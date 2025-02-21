@@ -27,7 +27,8 @@ def create_admin_user(username, email, password):
         else:
             # Create new admin user
             user = User(
-                username=username,
+                first_name='Super',
+                last_name='Admin',
                 email=email,
                 password=password
             )

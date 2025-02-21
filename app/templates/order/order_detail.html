@@ -117,7 +117,7 @@
                         {% if item.ordered_product %}
                         <tr>
                             <td>
-                                <a href="{{ url_for('shop.product_detail', product_id=item.ordered_product.id) }}">
+                                <a href="{{ url_for('main.product_detail', product_id=item.ordered_product.id) }}">
                                     {{ item.ordered_product.name }}
                                 </a>
                             </td>

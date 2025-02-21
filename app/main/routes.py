@@ -49,9 +49,28 @@ def index():
 @bp.route('/shop')
 def shop():
     page = request.args.get('page', 1, type=int)
-    products = Product.query.filter_by(is_active=True, is_deleted=False).paginate(
+    sort_by = request.args.get('sort', 'default')
+    
+    # Base query
+    query = Product.query.filter_by(is_active=True, is_deleted=False)
+    
+    # Apply sorting
+    if sort_by == 'price_low':
+        query = query.order_by(Product.price.asc())
+    elif sort_by == 'price_high':
+        query = query.order_by(Product.price.desc())
+    elif sort_by == 'newest':
+        query = query.order_by(Product.created_at.desc())
+    elif sort_by == 'name_asc':
+        query = query.order_by(Product.name.asc())
+    elif sort_by == 'name_desc':
+        query = query.order_by(Product.name.desc())
+    
+    # Paginate results
+    products = query.paginate(
         page=page, per_page=current_app.config.get('PRODUCTS_PER_PAGE', 12)
     )
+    
     categories = Category.query.all()
     
     # Get wishlist items for the current user
@@ -60,9 +79,7 @@ def shop():
         wishlist_items = {item.product_id for item in Wishlist.query.filter_by(user_id=current_user.id).all()}
     
     # Check if any product is new
-    # Get current time
     current_time = datetime.now()
-    # Calculate the date 30 days ago
     thirty_days_ago = current_time - timedelta(days=30)
     for product in products:
         product.is_new = product.created_at >= thirty_days_ago
@@ -70,7 +87,8 @@ def shop():
     return render_template('main/shop.html', 
                          products=products, 
                          categories=categories,
-                         wishlist_items=wishlist_items)
+                         wishlist_items=wishlist_items,
+                         sort_by=sort_by)
 
 @bp.route('/product/<int:product_id>')
 def product_detail(product_id):
