@@ -2067,3 +2067,44 @@ footer {
     margin: 0 auto 15px;
     object-fit: contain;
 }
+
+/* Image Modal Styles */
+#imageModal .modal-dialog {
+    max-width: 90%;
+}
+
+#imageModal .modal-content {
+    background-color: rgba(255, 255, 255, 0.95);
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+#imageModal .modal-header {
+    border-bottom: 1px solid var(--border-color);
+    padding: 15px 20px;
+}
+
+#imageModal .modal-body {
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+}
+
+#modalLargeImage {
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.product-image {
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+}
+
+.product-image:hover {
+    opacity: 0.9;
+}

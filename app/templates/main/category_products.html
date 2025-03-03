@@ -27,7 +27,9 @@
                             <div class="carousel-item {% if loop.first %}active{% endif %}">
                                 <img src="{{ image.image_url }}" 
                                      class="d-block w-100 product-image" 
-                                     alt="{{ product.name }}">
+                                     alt="{{ product.name }}"
+                                     onclick="openImageModal('{{ image.image_url }}', '{{ product.name }}')"
+                                     style="cursor: pointer;">
                             </div>
                             {% endfor %}
                         </div>

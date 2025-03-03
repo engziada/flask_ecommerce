@@ -95,7 +95,9 @@ function showProductQuickView(productId) {
                         <img src="${primaryImage.image_url}" 
                              class="img-fluid main-image" 
                              alt="${product.name}"
-                             id="modalMainImage">
+                             id="modalMainImage"
+                             onclick="openImageModal('${primaryImage.image_url}', '${product.name}')"
+                             style="cursor: pointer;">
                     `;
                     
                     // Add thumbnails if there are multiple images
@@ -107,7 +109,7 @@ function showProductQuickView(productId) {
                                 <img src="${image.image_url}" 
                                      class="img-fluid thumbnail${image.is_primary ? ' active' : ''}" 
                                      alt="${product.name}"
-                                     onclick="changeModalImage(this.src)">
+                                     onclick="changeModalImage(this.src); openImageModal(this.src, '${product.name}')">
                             `;
                             thumbnailContainer.appendChild(thumbCol);
                         });
@@ -176,6 +178,11 @@ function changeModalImage(src) {
 function addToCartFromModal(productId) {
     const quantity = document.getElementById('modalQuantity').value;
     addToCart(productId, quantity);
+}
+
+function openImageModal(imageUrl, altText) {
+    // TO DO: implement image modal functionality
+    console.log(`Open image modal with URL: ${imageUrl} and alt text: ${altText}`);
 }
 </script>
 

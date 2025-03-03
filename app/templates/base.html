@@ -222,6 +222,8 @@
     <!-- Main JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
+    {% include 'includes/_image_modal.html' %}
+
     {% block scripts %}{% endblock %}
 </body>
 </html>
