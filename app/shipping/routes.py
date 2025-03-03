@@ -5,10 +5,12 @@ from app.models.shipping import ShippingCarrier
 from app.models.address import Address
 from app.models.cart import Cart
 from app.models.user import User
+from app.models.order import Order
 from datetime import datetime, timedelta
 from flask import current_app
 from flask_login import current_user, login_required
 from app.utils.city_mapping import BostaCityMapping
+from app import db
 
 @bp.route('/carriers', methods=['GET'])
 def get_carriers():
@@ -131,7 +133,32 @@ def shipping_webhook():
             return jsonify({'error': 'Missing required fields'}), 400
             
         # Update order shipping status
-        # TODO: Implement order status update based on Bosta delivery status
+        # Find the order by delivery_id
+        order = Order.query.filter_by(delivery_id=delivery_id).first()
+        
+        if not order:
+            bp.logger.error(f"Order not found for delivery_id: {delivery_id}")
+            return jsonify({'error': 'Order not found'}), 404
+            
+        # Update delivery status
+        order.update_delivery_status(status)
+        
+        # Update order status based on delivery status
+        if status == 'DELIVERED':
+            order.status = 'delivered'
+            
+            # When order is delivered, also update payment status to 'paid' for COD orders
+            if order.payment_method == 'cod' and order.payment_status != 'paid':
+                order.payment_status = 'paid'
+                bp.logger.info(f"Order {order.id} marked as paid upon delivery (COD)")
+                
+        elif status == 'OUT_FOR_DELIVERY':
+            order.status = 'shipped'
+        elif status == 'CANCELLED':
+            order.status = 'cancelled'
+            
+        db.session.commit()
+        bp.logger.info(f"Updated order {order.id} status to {order.status} based on delivery status {status}")
         
         return jsonify({'success': True}), 200
         

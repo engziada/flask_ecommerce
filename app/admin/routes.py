@@ -653,6 +653,12 @@ def mark_order_delivered(order_id):
     
     try:
         order.status = 'delivered'
+        
+        # When order is delivered, also update payment status to 'paid' for COD orders
+        if order.payment_method == 'cod' and order.payment_status != 'paid':
+            order.payment_status = 'paid'
+            current_app.logger.info(f"Order {order.id} marked as paid upon delivery (COD)")
+        
         db.session.commit()
         flash('Order marked as delivered successfully.', 'success')
     except Exception as e:
