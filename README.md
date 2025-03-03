@@ -273,8 +273,22 @@ To restore to this checkpoint:
 git restore --source=checkpoint-13 .
 ```
 
+### Checkpoint 14 (2025-03-03)
+- Added feature to open product images in a large scale modal when clicked
+- Created new image modal component in _image_modal.html
+- Updated product cards to make images clickable in shop and category pages
+- Enhanced product quick view modal to allow image enlargement
+- Added CSS styles for the image modal with smooth transitions
+- Updated order state machine to set payment status to 'Paid' when delivery status is 'Delivered'
+- Implemented webhook handler for shipping status updates
+
+To restore to this checkpoint:
+```bash
+git restore --source=checkpoint-14 .
+```
+
 ## License
 
 This project is licensed under the MIT License.
 
-Last Updated: February 20, 2025
+Last Updated: March 3, 2025
