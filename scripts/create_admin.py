@@ -21,8 +21,9 @@ def create_admin_user(username, email, password):
         # Check if user already exists
         user = User.query.filter_by(email=email).first()
         if user:
-            # If user exists, make them admin
+            # If user exists, make them admin and ensure they're active
             user.is_admin = True
+            user.status = 'active'
             print(f"Existing user {email} has been made admin")
         else:
             # Create new admin user
@@ -33,6 +34,7 @@ def create_admin_user(username, email, password):
                 password=password
             )
             user.is_admin = True
+            user.status = 'active'
             db.session.add(user)
         
         db.session.commit()

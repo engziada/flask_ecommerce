@@ -76,6 +76,22 @@
             <div class="row mt-4">
                 <div class="col-12">
                     <h4>Product Images</h4>
+                    
+                    <!-- Multiple Image Upload -->
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Quick Upload Multiple Images</h5>
+                            <p class="text-muted">Select multiple images at once to add them to the product.</p>
+                            <div class="custom-file mb-3">
+                                {{ form.multiple_images(class="form-control", accept="image/*") }}
+                                <div id="multipleImagesPreview" class="d-flex flex-wrap gap-2 mt-3"></div>
+                                {% for error in form.multiple_images.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div id="image-container" class="row g-3">
                         {% for image_form in form.images %}
                         <div class="col-md-4">
@@ -92,7 +108,7 @@
                                         {{ image_form.image(class="custom-file-input") }}
                                         <label class="custom-file-label" for="{{ image_form.image.id }}">
                                             {% if product and product.images and loop.index0 < product.images.count() %}
-                                                {{ product.images[loop.index0].image_url.split('/')[-1] }}
+                                                <span class="text-success">✓</span> {{ product.images[loop.index0].image_url.split('/')[-1] }}
                                             {% else %}
                                                 Choose file
                                             {% endif %}

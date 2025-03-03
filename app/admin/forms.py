@@ -72,6 +72,10 @@ class ProductForm(FlaskForm):
     ])
     is_active = BooleanField('Active')
     images = FieldList(FormField(ProductImageForm), min_entries=1)
+    multiple_images = FileField('Upload Multiple Images', validators=[
+        Optional(),
+        FileAllowed(['jpg', 'jpeg', 'png', 'gif'], 'Only JPG, JPEG, PNG, and GIF images are allowed.')
+    ], render_kw={"multiple": True})
 
     def __init__(self, *args, **kwargs):
         """Initialize the form"""
